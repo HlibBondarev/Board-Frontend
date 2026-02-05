@@ -1,0 +1,16 @@
+name: Notify Main Repo on Push
+on:
+  push:
+    branches: [ dev ] # We run it only when pushing to dev
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Repository Dispatch to Board-Main
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.MAIN_REPO_SYNC_TOKEN }}
+          repository: HlibBondarev/Board-Main # YOUR COMPLETE PATH
+          event-type: sub-module-update
+          client-payload: '{"module": "Frontend"}' # A signal that identifies the source
