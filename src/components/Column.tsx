@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { Paper, Typography, Box, IconButton, Button } from "@mui/material";
 import { Add as AddIcon, MoreHoriz as MoreIcon } from "@mui/icons-material";
 import IssueCard from "./IssueCard";
+import CreateIssueModal from "./modal/CreateIssueModal"; // Import your new modal
 import { type Column as ColumnType } from "../features/board/boardSlice";
 
 interface Props {
@@ -8,11 +10,18 @@ interface Props {
 }
 
 const Column = ({ column }: Props) => {
+  // State to manage modal visibility
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Functions to open and close the modal
+  const handleOpenModal = () => setIsModalOpen(true);
+  const handleCloseModal = () => setIsModalOpen(false);
+
   return (
     <Paper
       sx={{
         width: 300,
-        backgroundColor: "#f4f5f7", // Classic Kanban column grey
+        backgroundColor: "#f4f5f7",
         borderRadius: 2,
         display: "flex",
         flexDirection: "column",
@@ -43,7 +52,7 @@ const Column = ({ column }: Props) => {
       <Box
         sx={{
           flexGrow: 1,
-          overflowY: "auto", // Scroll if many cards
+          overflowY: "auto",
           minHeight: 100,
           mb: 2,
         }}
@@ -53,10 +62,11 @@ const Column = ({ column }: Props) => {
         ))}
       </Box>
 
-      {/* Add Issue Button */}
+      {/* Add Issue Button - now with onClick handler */}
       <Button
         fullWidth
         startIcon={<AddIcon />}
+        onClick={handleOpenModal} // Trigger modal open
         sx={{
           justifyContent: "flex-start",
           color: "text.secondary",
@@ -66,6 +76,13 @@ const Column = ({ column }: Props) => {
       >
         Add a card
       </Button>
+
+      {/* Render the modal and pass necessary props */}
+      <CreateIssueModal
+        open={isModalOpen}
+        handleClose={handleCloseModal}
+        columnId={column.id}
+      />
     </Paper>
   );
 };

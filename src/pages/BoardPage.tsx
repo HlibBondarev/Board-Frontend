@@ -1,67 +1,44 @@
-import { Box, Container, Typography } from "@mui/material";
+import { useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import {
+  Box,
+  Container,
+  Typography,
+  CircularProgress,
+  Alert,
+} from "@mui/material";
+import { fetchBoard } from "../features/board/boardSlice";
+import { type RootState, type AppDispatch } from "../app/store"; // path to store
 import Column from "../components/Column";
-import { type Column as ColumnType } from "../features/board/boardSlice";
-
-// Temporary mock data to test the UI before connecting to the real API
-const MOCK_COLUMNS: ColumnType[] = [
-  {
-    id: 1,
-    name: "To Do",
-    description: "Tasks to be started",
-    position: 1,
-    userId: "user-1",
-    issues: [
-      {
-        id: 101,
-        title: "Setup Project Architecture",
-        description: "Implement Redux slices and Axios instance",
-        dueDate: "2025-02-15T10:00:00",
-        createdAt: new Date().toISOString(),
-        positionInColumn: 1,
-        columnId: 1,
-        creatorId: "user-1",
-      },
-      {
-        id: 102,
-        title: "Design UI Mockups",
-        description: "Create Figma designs for the main board and modals",
-        dueDate: "2024-01-10T10:00:00", // Overdue example
-        createdAt: new Date().toISOString(),
-        positionInColumn: 2,
-        columnId: 1,
-        creatorId: "user-1",
-      },
-    ],
-  },
-  {
-    id: 2,
-    name: "In Progress",
-    description: "Tasks currently being worked on",
-    position: 2,
-    userId: "user-1",
-    issues: [
-      {
-        id: 103,
-        title: "Integrate MUI Components",
-        description: "Replace standard HTML tags with Material UI",
-        createdAt: new Date().toISOString(),
-        positionInColumn: 1,
-        columnId: 2,
-        creatorId: "user-1",
-      },
-    ],
-  },
-  {
-    id: 3,
-    name: "Done",
-    description: "Completed tasks",
-    position: 3,
-    userId: "user-1",
-    issues: [],
-  },
-];
 
 const BoardPage = () => {
+  const dispatch = useDispatch<AppDispatch>();
+
+  // Get columns, loading status, and errors from Redux
+  const { columns, loading, error } = useSelector(
+    (state: RootState) => state.board,
+  );
+
+  useEffect(() => {
+    // Call the API on the first render to load the board data
+    dispatch(fetchBoard());
+  }, [dispatch]);
+
+  if (loading) {
+    return (
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          height: "100vh",
+        }}
+      >
+        <CircularProgress />
+      </Box>
+    );
+  }
+
   return (
     <Box
       sx={{
@@ -78,21 +55,22 @@ const BoardPage = () => {
           Product Roadmap
         </Typography>
 
-        {/* Horizontal scrollable container for columns */}
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {error}
+          </Alert>
+        )}
+
         <Box
           sx={{
             display: "flex",
             alignItems: "flex-start",
             overflowX: "auto",
             pb: 2,
-            "&::-webkit-scrollbar": { height: "8px" },
-            "&::-webkit-scrollbar-thumb": {
-              backgroundColor: "#ccc",
-              borderRadius: "4px",
-            },
+            gap: 2,
           }}
         >
-          {MOCK_COLUMNS.map((col) => (
+          {columns.map((col) => (
             <Column key={col.id} column={col} />
           ))}
         </Box>
