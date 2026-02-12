@@ -52,7 +52,7 @@ const BoardPage = () => {
     >
       <Container maxWidth={false}>
         <Typography variant="h4" fontWeight="700" sx={{ mb: 4, px: 1 }}>
-          Product Roadmap
+          Dashboard
         </Typography>
 
         {error && (

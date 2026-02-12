@@ -25,7 +25,7 @@ const IssueCard = ({ issue }: Props) => {
     >
       <CardContent sx={{ "&:last-child": { pb: 2 } }}>
         <Typography variant="subtitle1" fontWeight="600" gutterBottom>
-          {issue.title}
+          {issue.title} {issue.assigneeName && `(${issue.assigneeName})`}
         </Typography>
 
         <Typography

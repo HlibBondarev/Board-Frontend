@@ -15,7 +15,9 @@ export interface Issue {
   positionInColumn: number;
   columnId: number;
   creatorId: string;
+  creatorName: string;
   assigneeId?: string;
+  assigneeName?: string;
 }
 
 export interface Column {
@@ -24,6 +26,7 @@ export interface Column {
   description: string;
   position: number;
   userId: string;
+  UserDisplayName: string;
   issues: Issue[];
 }
 
