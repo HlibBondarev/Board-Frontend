@@ -13,9 +13,12 @@ import { type Issue } from "../features/board/boardSlice";
 import { useDispatch, useSelector } from "react-redux";
 import { setFilterAssignee } from "../features/board/boardSlice";
 import { type RootState } from "../app/store";
+/* 1. Import Draggable */
+import { Draggable } from "@hello-pangea/dnd";
 
 interface Props {
   issue: Issue;
+  index: number; // 2. Add index prop
 }
 
 /**
@@ -41,7 +44,7 @@ const stringToColor = (string: string) => {
   return color;
 };
 
-const IssueCard = ({ issue }: Props) => {
+const IssueCard = ({ issue, index }: Props) => {
   // Check if the deadline has already passed
   const isOverdue = issue.dueDate
     ? dayjs().isAfter(dayjs(issue.dueDate))
@@ -64,112 +67,127 @@ const IssueCard = ({ issue }: Props) => {
     }
   };
 
+  /* 3. Disable dragging if a filter is active to avoid index mismatch */
+  const isDragDisabled = Boolean(activeFilterId);
+
   return (
-    <Card
-      variant="outlined"
-      sx={{
-        mb: 1.5,
-        cursor: "pointer",
-        "&:hover": { boxShadow: 3, borderColor: "primary.main" },
-        borderRadius: 2,
-        // Visual feedback: highlight border if filtered by this person
-        border: isSelected ? "2px solid" : "1px solid #e0e0e0",
-        borderColor: isSelected ? "primary.main" : "#e0e0e0",
-      }}
+    <Draggable
+      draggableId={String(issue.id)}
+      index={index}
+      isDragDisabled={isDragDisabled}
     >
-      <CardContent sx={{ "&:last-child": { pb: 2 } }}>
-        <Typography variant="subtitle1" fontWeight="600" gutterBottom>
-          {issue.title} {issue.assigneeName && `(${issue.assigneeName})`}
-        </Typography>
+      {(provided, snapshot) => (
+        <Card
+          ref={provided.innerRef}
+          {...provided.draggableProps}
+          {...provided.dragHandleProps}
+          variant="outlined"
+          sx={{
+            mb: 1.5,
+            cursor: "pointer",
+            borderRadius: 2,
+            /* 4. Visual feedback during drag */
+            boxShadow: snapshot.isDragging ? 6 : 1,
+            backgroundColor: snapshot.isDragging ? "#fff" : "white",
+            opacity:
+              isDragDisabled && activeFilterId !== issue.assigneeId ? 0.5 : 1,
+          }}
+        >
+          <CardContent sx={{ "&:last-child": { pb: 2 } }}>
+            <Typography variant="subtitle1" fontWeight="600" gutterBottom>
+              {issue.title}
+            </Typography>
 
-        <Typography
-          variant="body2"
-          color="text.secondary"
-          sx={{
-            mb: 2,
-            display: "-webkit-box",
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: "vertical",
-            overflow: "hidden",
-          }}
-        >
-          {issue.description}
-        </Typography>
-
-        <Box
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}
-        >
-          {issue.dueDate ? (
-            <Chip
-              icon={<CalendarToday sx={{ fontSize: "14px !important" }} />}
-              label={dayjs(issue.dueDate).format("MMM D, YYYY")}
-              size="small"
-              // Uses "error" color (red) if overdue, otherwise default
-              color={isOverdue ? "error" : "default"}
-              // Using "outlined" because "soft" is not a standard MUI Material variant
-              variant="outlined"
-              sx={{ fontSize: "0.75rem" }}
-            />
-          ) : (
-            <Box /> // Empty box to maintain layout symmetry
-          )}
-        </Box>
-        <Box
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "flex-end",
-          }}
-        >
-          {issue.assigneeName && (
-            <Tooltip
-              title={`Filter by ${issue.assigneeName}`}
-              arrow
-              placement="top"
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{
+                mb: 2,
+                display: "-webkit-box",
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: "vertical",
+                overflow: "hidden",
+              }}
             >
-              <Chip
-                avatar={
-                  <Avatar
+              {issue.description}
+            </Typography>
+
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}
+            >
+              {issue.dueDate ? (
+                <Chip
+                  icon={<CalendarToday sx={{ fontSize: "14px !important" }} />}
+                  label={dayjs(issue.dueDate).format("MMM D, YYYY")}
+                  size="small"
+                  // Uses "error" color (red) if overdue, otherwise default
+                  color={isOverdue ? "error" : "default"}
+                  // Using "outlined" because "soft" is not a standard MUI Material variant
+                  variant="outlined"
+                  sx={{ fontSize: "0.75rem" }}
+                />
+              ) : (
+                <Box /> // Empty box to maintain layout symmetry
+              )}
+            </Box>
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "flex-end",
+              }}
+            >
+              {issue.assigneeName && (
+                <Tooltip
+                  title={`Filter by ${issue.assigneeName}`}
+                  arrow
+                  placement="top"
+                >
+                  <Chip
+                    avatar={
+                      <Avatar
+                        sx={{
+                          width: 20,
+                          height: 20,
+                          fontSize: "10px",
+                          // Generate color based on assigneeId (or Name if ID is missing)
+                          bgcolor: stringToColor(
+                            issue.assigneeId || issue.assigneeName,
+                          ),
+                          color: "#fff",
+                          // Visual pop for selected state
+                          boxShadow: isSelected
+                            ? "0 0 0 2px #fff, 0 0 0 4px #1976d2"
+                            : "none",
+                        }}
+                      >
+                        {issue.assigneeName.charAt(0)}
+                      </Avatar>
+                    }
+                    label={issue.assigneeName}
+                    size="small"
+                    onClick={handleAssigneeClick}
+                    // Switch between primary (selected) and default (not selected)
+                    color={isSelected ? "primary" : "default"}
+                    variant={isSelected ? "filled" : "outlined"}
                     sx={{
-                      width: 20,
-                      height: 20,
-                      fontSize: "10px",
-                      // Generate color based on assigneeId (or Name if ID is missing)
-                      bgcolor: stringToColor(
-                        issue.assigneeId || issue.assigneeName,
-                      ),
-                      color: "#fff",
-                      // Visual pop for selected state
-                      boxShadow: isSelected
-                        ? "0 0 0 2px #fff, 0 0 0 4px #1976d2"
-                        : "none",
+                      fontSize: "0.7rem",
+                      cursor: "pointer",
+                      fontWeight: isSelected ? "bold" : "normal",
+                      transition: "all 0.2s ease",
                     }}
-                  >
-                    {issue.assigneeName.charAt(0)}
-                  </Avatar>
-                }
-                label={issue.assigneeName}
-                size="small"
-                onClick={handleAssigneeClick}
-                // Switch between primary (selected) and default (not selected)
-                color={isSelected ? "primary" : "default"}
-                variant={isSelected ? "filled" : "outlined"}
-                sx={{
-                  fontSize: "0.7rem",
-                  cursor: "pointer",
-                  fontWeight: isSelected ? "bold" : "normal",
-                  transition: "all 0.2s ease",
-                }}
-              />
-            </Tooltip>
-          )}
-        </Box>
-      </CardContent>
-    </Card>
+                  />
+                </Tooltip>
+              )}
+            </Box>
+          </CardContent>
+        </Card>
+      )}
+    </Draggable>
   );
 };
 

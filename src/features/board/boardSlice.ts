@@ -89,6 +89,37 @@ export const createIssue = createAsyncThunk(
   },
 );
 
+// 1. Add MoveIssueDto interface
+export interface MoveIssueDto {
+  issueId: number;
+  sourceColumnId: number;
+  destinationColumnId: number;
+  newPosition: number;
+}
+
+// 2. Create AsyncThunk for backend sync
+export const moveIssue = createAsyncThunk(
+  "board/moveIssue",
+  async (moveData: MoveIssueDto, { rejectWithValue }) => {
+    try {
+      // Endpoint to update ColumnId and PositionInColumn in your .NET API
+      const response = await axiosInstance.patch(
+        `/issues/${moveData.issueId}/move`,
+        {
+          columnId: moveData.destinationColumnId,
+          position: moveData.newPosition,
+        },
+      );
+      return response.data;
+    } catch (error) {
+      const err = error as AxiosError<{ message?: string }>;
+      return rejectWithValue(
+        err.response?.data?.message || "Error moving issue",
+      );
+    }
+  },
+);
+
 export const boardSlice = createSlice({
   name: "board",
   initialState: initialState,
@@ -114,6 +145,34 @@ export const boardSlice = createSlice({
     clearFilter: (state) => {
       state.filterAssigneeId = null;
       state.filterAssigneeName = null;
+    },
+    /* 3. Reducer for local state update (Drag and Drop logic) */
+    moveIssueOptimistic: (state, action: PayloadAction<MoveIssueDto>) => {
+      const { issueId, sourceColumnId, destinationColumnId, newPosition } =
+        action.payload;
+
+      // Find source and destination columns
+      const sourceCol = state.columns.find((c) => c.id === sourceColumnId);
+      const destCol = state.columns.find((c) => c.id === destinationColumnId);
+
+      if (!sourceCol || !destCol) return;
+
+      // Find and remove the issue from the source column
+      const issueIndex = sourceCol.issues.findIndex((i) => i.id === issueId);
+      if (issueIndex === -1) return;
+
+      const [movedIssue] = sourceCol.issues.splice(issueIndex, 1);
+
+      // Update the issue's columnId property
+      movedIssue.columnId = destinationColumnId;
+
+      // Insert the issue into the new position in the destination column
+      destCol.issues.splice(newPosition, 0, movedIssue);
+
+      // Re-calculate positions for all issues in the affected columns (optional but recommended)
+      destCol.issues.forEach((issue, index) => {
+        issue.positionInColumn = index;
+      });
     },
   },
   // Handle all Thunk lifecycle states here
@@ -154,6 +213,10 @@ export const boardSlice = createSlice({
   },
 });
 
-export const { setColumns, setFilterAssignee, clearFilter } =
-  boardSlice.actions;
+export const {
+  setColumns,
+  setFilterAssignee,
+  clearFilter,
+  moveIssueOptimistic,
+} = boardSlice.actions;
 export default boardSlice.reducer;

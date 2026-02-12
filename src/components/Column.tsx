@@ -6,6 +6,8 @@ import IssueCard from "./IssueCard";
 import CreateIssueModal from "./modal/CreateIssueModal"; // Import your new modal
 import { type Column as ColumnType } from "../features/board/boardSlice";
 import { type RootState } from "../app/store";
+/* 1. Import Droppable from DND library */
+import { Droppable } from "@hello-pangea/dnd";
 
 interface Props {
   column: ColumnType;
@@ -23,6 +25,8 @@ const Column = ({ column }: Props) => {
     (state: RootState) => state.board.filterAssigneeId,
   );
 
+  /* 2. IMPORTANT: DND works best with the full list. 
+     If filter is active, we disable DND logic or show filtered items as non-draggable. */
   const visibleIssues = filterAssigneeId
     ? column.issues?.filter((issue) => issue.assigneeId === filterAssigneeId)
     : column.issues;
@@ -59,18 +63,23 @@ const Column = ({ column }: Props) => {
       </Box>
 
       {/* Issues List Container */}
-      <Box
-        sx={{
-          flexGrow: 1,
-          overflowY: "auto",
-          minHeight: 100,
-          mb: 2,
-        }}
-      >
-        {visibleIssues?.map((issue) => (
-          <IssueCard key={issue.id} issue={issue} />
-        ))}
-      </Box>
+      {/* 3. Wrap issues list with Droppable */}
+      <Droppable droppableId={String(column.id)}>
+        {(provided) => (
+          <Box
+            {...provided.droppableProps}
+            ref={provided.innerRef}
+            sx={{ flexGrow: 1, overflowY: "auto", minHeight: 100, mb: 2 }}
+          >
+            {visibleIssues?.map((issue, index) => (
+              /* 4. Pass index to IssueCard */
+              <IssueCard key={issue.id} issue={issue} index={index} />
+            ))}
+            {/* 5. Placeholder prevents column from shrinking during drag */}
+            {provided.placeholder}
+          </Box>
+        )}
+      </Droppable>
 
       {/* Add Issue Button - now with onClick handler */}
       <Button
