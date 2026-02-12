@@ -34,12 +34,17 @@ interface BoardState {
   columns: Column[];
   loading: boolean;
   error: string | null;
+  // store ID for uniqueness, name for the UI label
+  filterAssigneeId: string | null;
+  filterAssigneeName: string | null;
 }
 
 const initialState: BoardState = {
   columns: [],
   loading: false,
   error: null,
+  filterAssigneeId: null,
+  filterAssigneeName: null,
 };
 
 // 1. Create an asynchronous Thunk to load data
@@ -92,6 +97,24 @@ export const boardSlice = createSlice({
     setColumns: (state, action: PayloadAction<Column[]>) => {
       state.columns = action.payload;
     },
+    // Toggle logic using ID, but also saving Name for the UI badge
+    setFilterAssignee: (
+      state,
+      action: PayloadAction<{ id: string; name: string } | null>,
+    ) => {
+      if (state.filterAssigneeId === action.payload?.id) {
+        state.filterAssigneeId = null;
+        state.filterAssigneeName = null;
+      } else {
+        state.filterAssigneeId = action.payload?.id || null;
+        state.filterAssigneeName = action.payload?.name || null;
+      }
+    },
+    // Separate reset for the top bar
+    clearFilter: (state) => {
+      state.filterAssigneeId = null;
+      state.filterAssigneeName = null;
+    },
   },
   // Handle all Thunk lifecycle states here
   extraReducers: (builder) => {
@@ -131,5 +154,6 @@ export const boardSlice = createSlice({
   },
 });
 
-export const { setColumns } = boardSlice.actions;
+export const { setColumns, setFilterAssignee, clearFilter } =
+  boardSlice.actions;
 export default boardSlice.reducer;

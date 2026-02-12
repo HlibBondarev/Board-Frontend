@@ -1,7 +1,18 @@
-import { Card, CardContent, Typography, Box, Chip } from "@mui/material";
+import {
+  Card,
+  CardContent,
+  Typography,
+  Box,
+  Chip,
+  Avatar,
+  Tooltip,
+} from "@mui/material";
 import { CalendarToday } from "@mui/icons-material";
 import dayjs from "dayjs";
 import { type Issue } from "../features/board/boardSlice";
+import { useDispatch, useSelector } from "react-redux";
+import { setFilterAssignee } from "../features/board/boardSlice";
+import { type RootState } from "../app/store";
 
 interface Props {
   issue: Issue;
@@ -12,6 +23,23 @@ const IssueCard = ({ issue }: Props) => {
   const isOverdue = issue.dueDate
     ? dayjs().isAfter(dayjs(issue.dueDate))
     : false;
+
+  const dispatch = useDispatch();
+  const activeFilterId = useSelector(
+    (state: RootState) => state.board.filterAssigneeId,
+  );
+
+  const isSelected = activeFilterId === issue.assigneeId;
+
+  const handleAssigneeClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (issue.assigneeId && issue.assigneeName) {
+      // Pass both ID and Name to the reducer
+      dispatch(
+        setFilterAssignee({ id: issue.assigneeId, name: issue.assigneeName }),
+      );
+    }
+  };
 
   return (
     <Card
@@ -62,6 +90,42 @@ const IssueCard = ({ issue }: Props) => {
             />
           ) : (
             <Box /> // Empty box to maintain layout symmetry
+          )}
+        </Box>
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "flex-end",
+          }}
+        >
+          {issue.assigneeName && (
+            <Tooltip
+              title={`Filter by ${issue.assigneeName}`}
+              arrow
+              placement="top"
+            >
+              <Chip
+                avatar={
+                  <Avatar
+                    sx={{
+                      width: 20,
+                      height: 20,
+                      fontSize: "10px",
+                      bgcolor: isSelected ? "white" : "primary.main",
+                      color: isSelected ? "primary.main" : "white",
+                    }}
+                  >
+                    {issue.assigneeName.charAt(0)}
+                  </Avatar>
+                }
+                label={issue.assigneeName}
+                size="small"
+                onClick={handleAssigneeClick}
+                color={isSelected ? "primary" : "default"}
+                sx={{ cursor: "pointer", fontSize: "0.7rem" }}
+              />
+            </Tooltip>
           )}
         </Box>
       </CardContent>

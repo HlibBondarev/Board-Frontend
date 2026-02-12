@@ -6,8 +6,14 @@ import {
   Typography,
   CircularProgress,
   Alert,
+  Chip,
+  Fade,
 } from "@mui/material";
-import { fetchBoard } from "../features/board/boardSlice";
+import {
+  Close as CloseIcon,
+  FilterList as FilterIcon,
+} from "@mui/icons-material";
+import { fetchBoard, clearFilter } from "../features/board/boardSlice";
 import { type RootState, type AppDispatch } from "../app/store"; // path to store
 import Column from "../components/Column";
 
@@ -15,7 +21,7 @@ const BoardPage = () => {
   const dispatch = useDispatch<AppDispatch>();
 
   // Get columns, loading status, and errors from Redux
-  const { columns, loading, error } = useSelector(
+  const { columns, loading, error, filterAssigneeName } = useSelector(
     (state: RootState) => state.board,
   );
 
@@ -54,6 +60,19 @@ const BoardPage = () => {
         <Typography variant="h4" fontWeight="700" sx={{ mb: 4, px: 1 }}>
           Dashboard
         </Typography>
+
+        {/* Active Filter Badge */}
+        <Fade in={Boolean(filterAssigneeName)}>
+          <Chip
+            icon={<FilterIcon />}
+            label={`Filter by: ${filterAssigneeName}`}
+            onDelete={() => dispatch(clearFilter())}
+            deleteIcon={<CloseIcon />}
+            color="primary"
+            variant="filled"
+            sx={{ fontWeight: 600 }}
+          />
+        </Fade>
 
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>

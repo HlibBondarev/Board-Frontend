@@ -1,9 +1,11 @@
 import { useState } from "react";
+import { useSelector } from "react-redux";
 import { Paper, Typography, Box, IconButton, Button } from "@mui/material";
 import { Add as AddIcon, MoreHoriz as MoreIcon } from "@mui/icons-material";
 import IssueCard from "./IssueCard";
 import CreateIssueModal from "./modal/CreateIssueModal"; // Import your new modal
 import { type Column as ColumnType } from "../features/board/boardSlice";
+import { type RootState } from "../app/store";
 
 interface Props {
   column: ColumnType;
@@ -16,6 +18,14 @@ const Column = ({ column }: Props) => {
   // Functions to open and close the modal
   const handleOpenModal = () => setIsModalOpen(true);
   const handleCloseModal = () => setIsModalOpen(false);
+
+  const filterAssigneeId = useSelector(
+    (state: RootState) => state.board.filterAssigneeId,
+  );
+
+  const visibleIssues = filterAssigneeId
+    ? column.issues?.filter((issue) => issue.assigneeId === filterAssigneeId)
+    : column.issues;
 
   return (
     <Paper
@@ -57,7 +67,7 @@ const Column = ({ column }: Props) => {
           mb: 2,
         }}
       >
-        {column.issues?.map((issue) => (
+        {visibleIssues?.map((issue) => (
           <IssueCard key={issue.id} issue={issue} />
         ))}
       </Box>
