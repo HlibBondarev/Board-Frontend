@@ -18,6 +18,29 @@ interface Props {
   issue: Issue;
 }
 
+/**
+ * Function to generate a consistent color based on a string (user ID or Name)
+ * @param string - The input string to hash
+ * @returns A hex color string
+ */
+const stringToColor = (string: string) => {
+  let hash = 0;
+  let i;
+
+  for (i = 0; i < string.length; i += 1) {
+    hash = string.charCodeAt(i) + ((hash << 5) - hash);
+  }
+
+  let color = "#";
+
+  for (i = 0; i < 3; i += 1) {
+    const value = (hash >> (i * 8)) & 0xff;
+    color += `00${value.toString(16)}`.slice(-2);
+  }
+
+  return color;
+};
+
 const IssueCard = ({ issue }: Props) => {
   // Check if the deadline has already passed
   const isOverdue = issue.dueDate
@@ -49,6 +72,9 @@ const IssueCard = ({ issue }: Props) => {
         cursor: "pointer",
         "&:hover": { boxShadow: 3, borderColor: "primary.main" },
         borderRadius: 2,
+        // Visual feedback: highlight border if filtered by this person
+        border: isSelected ? "2px solid" : "1px solid #e0e0e0",
+        borderColor: isSelected ? "primary.main" : "#e0e0e0",
       }}
     >
       <CardContent sx={{ "&:last-child": { pb: 2 } }}>
@@ -112,8 +138,15 @@ const IssueCard = ({ issue }: Props) => {
                       width: 20,
                       height: 20,
                       fontSize: "10px",
-                      bgcolor: isSelected ? "white" : "primary.main",
-                      color: isSelected ? "primary.main" : "white",
+                      // Generate color based on assigneeId (or Name if ID is missing)
+                      bgcolor: stringToColor(
+                        issue.assigneeId || issue.assigneeName,
+                      ),
+                      color: "#fff",
+                      // Visual pop for selected state
+                      boxShadow: isSelected
+                        ? "0 0 0 2px #fff, 0 0 0 4px #1976d2"
+                        : "none",
                     }}
                   >
                     {issue.assigneeName.charAt(0)}
@@ -122,8 +155,15 @@ const IssueCard = ({ issue }: Props) => {
                 label={issue.assigneeName}
                 size="small"
                 onClick={handleAssigneeClick}
+                // Switch between primary (selected) and default (not selected)
                 color={isSelected ? "primary" : "default"}
-                sx={{ cursor: "pointer", fontSize: "0.7rem" }}
+                variant={isSelected ? "filled" : "outlined"}
+                sx={{
+                  fontSize: "0.7rem",
+                  cursor: "pointer",
+                  fontWeight: isSelected ? "bold" : "normal",
+                  transition: "all 0.2s ease",
+                }}
               />
             </Tooltip>
           )}
