@@ -103,6 +103,8 @@ export const moveIssue = createAsyncThunk(
   async (moveData: MoveIssueDto, { rejectWithValue }) => {
     try {
       // Endpoint to update ColumnId and PositionInColumn in your .NET API
+      // Sending PATCH request to API
+      // Adjust the URL according to the backend routing (e.g., /api/issues/{id}/move)
       const response = await axiosInstance.patch(
         `/issues/${moveData.issueId}/move`,
         {
@@ -114,7 +116,7 @@ export const moveIssue = createAsyncThunk(
     } catch (error) {
       const err = error as AxiosError<{ message?: string }>;
       return rejectWithValue(
-        err.response?.data?.message || "Error moving issue",
+        err.response?.data?.message || "Failed to sync move with server",
       );
     }
   },

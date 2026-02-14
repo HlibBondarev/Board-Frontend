@@ -51,7 +51,7 @@ const BoardPage = () => {
       return;
     }
 
-    const payload = {
+    const moveData = {
       issueId: Number(draggableId),
       sourceColumnId: Number(source.droppableId),
       destinationColumnId: Number(destination.droppableId),
@@ -59,12 +59,21 @@ const BoardPage = () => {
     };
 
     /* 4. Implement Optimistic UI update (update Redux state immediately) */
-    dispatch(moveIssueOptimistic(payload));
+    //dispatch(moveIssueOptimistic(payload));
+    /* Update Redux state immediately (Optimistic UI) */
+    dispatch(
+      moveIssueOptimistic({
+        ...moveData,
+        sourceColumnId: Number(source.droppableId),
+      }),
+    );
 
     /* 5. Trigger the API call to update the backend database */
-    dispatch(moveIssue(payload));
+    //dispatch(moveIssue(payload));
+    /* NEW: Send request to the backend */
+    dispatch(moveIssue(moveData));
 
-    console.log("Moved Issue:", payload);
+    console.log("Moved Issue:", moveData);
   };
 
   if (loading) {
