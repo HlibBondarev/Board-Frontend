@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { useAuth0 } from "@auth0/auth0-react";
 import {
   Box,
   Container,
@@ -21,12 +22,14 @@ import {
   clearFilter,
   moveIssue,
   moveIssueOptimistic,
-} from "../features/board/boardSlice";
-import { type RootState, type AppDispatch } from "../app/store"; // path to store
+} from "../store/board/boardSlice";
+import { setAuthToken } from "../api/axiosInstance";
+import { type RootState, type AppDispatch } from "../store/store"; // path to store
 import Column from "../components/Column";
 
 const BoardPage = () => {
   const dispatch = useDispatch<AppDispatch>();
+  const { getAccessTokenSilently } = useAuth0();
 
   // Get columns, loading status, and errors from Redux
   const { columns, loading, error, filterAssigneeName } = useSelector(
@@ -34,9 +37,27 @@ const BoardPage = () => {
   );
 
   useEffect(() => {
-    // Call the API on the first render to load the board data
-    dispatch(fetchBoard());
-  }, [dispatch]);
+    let isMounted = true;
+
+    const initBoard = async () => {
+      try {
+        const token = await getAccessTokenSilently();
+        if (isMounted) {
+          setAuthToken(token);
+          dispatch(fetchBoard());
+        }
+      } catch (e) {
+        if (isMounted) {
+          console.error("Error getting token:", e);
+        }
+      }
+    };
+    initBoard();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [dispatch, getAccessTokenSilently]);
 
   /* 3. Define the handler for when a drag operation ends */
   const onDragEnd = (result: DropResult) => {
@@ -59,7 +80,6 @@ const BoardPage = () => {
     };
 
     /* 4. Implement Optimistic UI update (update Redux state immediately) */
-    //dispatch(moveIssueOptimistic(payload));
     /* Update Redux state immediately (Optimistic UI) */
     dispatch(
       moveIssueOptimistic({
@@ -69,14 +89,13 @@ const BoardPage = () => {
     );
 
     /* 5. Trigger the API call to update the backend database */
-    //dispatch(moveIssue(payload));
     /* NEW: Send request to the backend */
     dispatch(moveIssue(moveData));
-
-    console.log("Moved Issue:", moveData);
+    //console.log("Moved Issue:", moveData);
   };
 
-  if (loading) {
+  if (loading && columns.length === 0) {
+    // Show the spinner only on first load when there are no columns yet
     return (
       <Box
         sx={{

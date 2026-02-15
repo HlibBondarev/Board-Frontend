@@ -9,10 +9,10 @@ import {
 } from "@mui/material";
 import { CalendarToday } from "@mui/icons-material";
 import dayjs from "dayjs";
-import { type Issue } from "../features/board/boardSlice";
+import { type Issue } from "../store/board/boardSlice";
 import { useDispatch, useSelector } from "react-redux";
-import { setFilterAssignee } from "../features/board/boardSlice";
-import { type RootState } from "../app/store";
+import { setFilterAssignee } from "../store/board/boardSlice";
+import { type RootState } from "../store/store";
 /* 1. Import Draggable */
 import { Draggable } from "@hello-pangea/dnd";
 

@@ -4,8 +4,8 @@ import { Paper, Typography, Box, IconButton, Button } from "@mui/material";
 import { Add as AddIcon, MoreHoriz as MoreIcon } from "@mui/icons-material";
 import IssueCard from "./IssueCard";
 import CreateIssueModal from "./modal/CreateIssueModal"; // Import your new modal
-import { type Column as ColumnType } from "../features/board/boardSlice";
-import { type RootState } from "../app/store";
+import { type Column as ColumnType } from "../store/board/boardSlice";
+import { type RootState } from "../store/store";
 /* 1. Import Droppable from DND library */
 import { Droppable } from "@hello-pangea/dnd";
 
