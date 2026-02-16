@@ -8,7 +8,7 @@ import { AxiosError } from "axios";
 import { arrayMove } from "@dnd-kit/sortable";
 
 export interface Issue {
-  id: number;
+  id: number | string;
   title: string;
   description: string;
   dueDate?: string;
@@ -19,6 +19,7 @@ export interface Issue {
   creatorName: string;
   assigneeId?: string;
   assigneeName?: string;
+  isOptimistic?: boolean; // Flag to identify issues created during optimistic updates
 }
 
 export interface Column {
@@ -50,6 +51,20 @@ const initialState: BoardState = {
   filterAssigneeName: null,
 };
 
+export interface CreateIssueDto {
+  tempId: string; // Add this for tracking during optimistic updates
+  title: string;
+  description: string;
+  dueDate: string | null;
+  columnId: number;
+  positionInColumn: number;
+  createdAt: string;
+  creatorId: string;
+  assigneeId?: string;
+  creatorName: string | null;
+  assigneeName?: string | null;
+}
+
 // Create an asynchronous Thunk to load data
 export const fetchBoard = createAsyncThunk(
   "board/fetchBoard",
@@ -67,17 +82,6 @@ export const fetchBoard = createAsyncThunk(
     }
   },
 );
-
-export interface CreateIssueDto {
-  title: string;
-  description: string;
-  dueDate: string | null;
-  columnId: number;
-  positionInColumn: number;
-  createdAt: string;
-  creatorId: string;
-  assigneeId?: string;
-}
 
 export const createIssue = createAsyncThunk(
   "board/createIssue",
@@ -241,18 +245,41 @@ export const boardSlice = createSlice({
       )
 
       /* --- Case for creating a new issue --- */
-      .addCase(createIssue.fulfilled, (state, action: PayloadAction<Issue>) => {
-        // Find the column where the new issue belongs
+      .addCase(createIssue.pending, (state, action) => {
+        const dto = action.meta.arg;
+        const column = state.columns.find((c) => c.id === dto.columnId);
+        if (column) {
+          if (!column.issues) column.issues = [];
+          column.issues.push({
+            ...dto,
+            id: dto.tempId, // Use tempId as ID for React key
+            creatorName: dto.creatorName || null,
+            assigneeName: dto.assigneeName || null,
+            isOptimistic: true,
+          } as Issue);
+        }
+      })
+      .addCase(createIssue.fulfilled, (state, action) => {
+        const tempId = action.meta.arg.tempId; // Get tempId from the call arguments
         const column = state.columns.find(
           (c) => c.id === action.payload.columnId,
         );
-
-        if (column) {
-          // Ensure issues array exists before pushing
-          if (!column.issues) {
-            column.issues = [];
+        if (column && column.issues) {
+          const index = column.issues.findIndex((i) => i.id === tempId);
+          if (index !== -1) {
+            // Replace temp issue with real one from server
+            column.issues[index] = { ...action.payload, isOptimistic: false };
           }
-          column.issues.push(action.payload);
+        }
+      })
+      .addCase(createIssue.rejected, (state, action) => {
+        const tempId = action.meta.arg.tempId;
+        const column = state.columns.find(
+          (c) => c.id === action.meta.arg.columnId,
+        );
+        if (column && column.issues) {
+          // Precise rollback using unique tempId
+          column.issues = column.issues.filter((i) => i.id !== tempId);
         }
       })
 

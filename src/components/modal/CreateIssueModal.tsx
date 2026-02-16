@@ -46,12 +46,13 @@ const CreateIssueModal = ({ open, handleClose, columnId }: Props) => {
   // 2. Calculated properties from existing state
   const columns = useSelector((state: RootState) => state.board.columns);
   const currentColumn = columns.find((c) => c.id === columnId);
-  const nextPosition = (currentColumn?.issues?.length || 0) + 1;
+  const nextPosition = currentColumn?.issues?.length || 0; // Position is 0-based index
 
   const handleSave = async () => {
     // Constructing the payload based on requirements
     const payload: CreateIssueDto = {
       // Manual inputs
+      tempId: `temp-${crypto.randomUUID()}`, // Generate unique temp ID
       title,
       description,
       dueDate: dueDate ? dueDate.toISOString() : null,
@@ -61,11 +62,14 @@ const CreateIssueModal = ({ open, handleClose, columnId }: Props) => {
       positionInColumn: nextPosition,
       createdAt: new Date().toISOString(),
       creatorId: user?.sub || "guest-user", // Use sub from Auth0 or fallback
+      creatorName: user?.name || null,
 
       // 3. Assignee logic: set to current user ID if button was clicked
       assigneeId: isSelfAssigned ? user?.sub : undefined,
+      assigneeName: isSelfAssigned ? user?.name || null : undefined,
     };
 
+    handleClose(); // Close modal immediately for "fast" feel
     await dispatch(createIssue(payload));
 
     // Reset state and close modal
