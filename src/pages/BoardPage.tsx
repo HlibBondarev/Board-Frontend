@@ -6,10 +6,10 @@ import {
   Container,
   Typography,
   CircularProgress,
-  Alert as MuiAlert,
+  // Alert as MuiAlert,
   Chip,
   Fade,
-  Snackbar,
+  // Snackbar,
 } from "@mui/material";
 import {
   Close as CloseIcon,
@@ -33,13 +33,14 @@ import {
   clearFilter,
   moveIssue,
   moveIssueOptimistic,
-  clearError,
+  // clearError,
 } from "../store/board/boardSlice";
 import { setAuthToken } from "../api/axiosInstance";
 import { type RootState, type AppDispatch } from "../store/store";
 import Column from "../components/Column";
 import { type Issue } from "../store/board/boardSlice";
 import IssueCard from "../components/IssueCard";
+import GlobalErrorSnackbar from "../components/GlobalErrorSnackbar";
 
 const BoardPage = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -90,13 +91,13 @@ const BoardPage = () => {
 
   const isFilterActive = Boolean(filterAssigneeId);
 
-  const handleCloseError = (
-    _event?: React.SyntheticEvent | Event,
-    reason?: string,
-  ) => {
-    if (reason === "clickaway") return;
-    dispatch(clearError());
-  };
+  // const handleCloseError = (
+  //   _event?: React.SyntheticEvent | Event,
+  //   reason?: string,
+  // ) => {
+  //   if (reason === "clickaway") return;
+  //   dispatch(clearError());
+  // };
 
   const handleDragStart = (event: DragStartEvent) => {
     if (isFilterActive) return; // Block dragging when filter is active to prevent index mismatch
@@ -200,7 +201,6 @@ const BoardPage = () => {
           <Typography variant="h4" fontWeight="700" sx={{ mb: 4, px: 1 }}>
             Dashboard
           </Typography>
-
           <Fade in={Boolean(filterAssigneeName)}>
             <Chip
               icon={<FilterIcon />}
@@ -212,9 +212,8 @@ const BoardPage = () => {
               sx={{ fontWeight: 600 }}
             />
           </Fade>
-
           {/* Error Notification */}
-          <Snackbar
+          {/* <Snackbar
             open={Boolean(error)}
             autoHideDuration={6000}
             onClose={handleCloseError}
@@ -228,8 +227,8 @@ const BoardPage = () => {
             >
               {error}
             </MuiAlert>
-          </Snackbar>
-
+          </Snackbar> */}
+          <GlobalErrorSnackbar /> {/* Listens for errors globally */}
           <Box
             sx={{
               display: "flex",

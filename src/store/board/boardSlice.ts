@@ -36,7 +36,7 @@ interface BoardState {
   columns: Column[];
   previousColumns: Column[] | null; // Snapshot for rollback
   loading: boolean;
-  error: string | null;
+  error: string | null; // Added to track global board errors
   // store ID for uniqueness, name for the UI label
   filterAssigneeId: string | null;
   filterAssigneeName: string | null;
@@ -281,6 +281,11 @@ export const boardSlice = createSlice({
           // Precise rollback using unique tempId
           column.issues = column.issues.filter((i) => i.id !== tempId);
         }
+
+        // Set error message from rejectWithValue or fallback
+        state.error =
+          (action.payload as string) ||
+          "Failed to save issue. Please try again.";
       })
 
       /* --- Case for moving the issue --- */
