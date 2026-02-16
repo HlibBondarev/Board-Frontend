@@ -6,9 +6,10 @@ import {
   Container,
   Typography,
   CircularProgress,
-  Alert,
+  Alert as MuiAlert,
   Chip,
   Fade,
+  Snackbar,
 } from "@mui/material";
 import {
   Close as CloseIcon,
@@ -32,6 +33,7 @@ import {
   clearFilter,
   moveIssue,
   moveIssueOptimistic,
+  clearError,
 } from "../store/board/boardSlice";
 import { setAuthToken } from "../api/axiosInstance";
 import { type RootState, type AppDispatch } from "../store/store";
@@ -84,14 +86,21 @@ const BoardPage = () => {
 
   const isFilterActive = Boolean(filterAssigneeId);
 
+  const handleCloseError = (
+    _event?: React.SyntheticEvent | Event,
+    reason?: string,
+  ) => {
+    if (reason === "clickaway") return;
+    dispatch(clearError());
+  };
+
   const handleDragStart = (event: DragStartEvent) => {
     if (isFilterActive) return; // Block dragging when filter is active to prevent index mismatch
 
-    const { active } = event;
     /* Find the full issue object in your existing columns state */
     const issue = columns
       .flatMap((col) => col.issues)
-      .find((i) => i.id === Number(active.id));
+      .find((i) => i.id === Number(event.active.id));
 
     if (issue) setActiveIssue(issue);
   };
@@ -106,8 +115,7 @@ const BoardPage = () => {
     const activeContainer = active.data.current?.sortable?.containerId;
     const overContainer = over.data.current?.sortable?.containerId || over.id;
 
-    // 7. Update Redux first (Optimistic update)
-    // This ensures the 'columns' state in the next step is already updated
+    // 7. Final optimistic update to fix positions
     dispatch(
       moveIssueOptimistic({
         issueId: activeId,
@@ -120,19 +128,18 @@ const BoardPage = () => {
     // 8. Sync with Server
     // We don't calculate 'finalIndex' here.
     // The thunk will use getState() to find the new position from Redux store.
-    setTimeout(() => {
-      dispatch(
-        moveIssue({
-          issueId: activeId,
-          columnId: Number(overContainer),
-        }),
-      );
-    }, 0);
+    // setTimeout(() => {
+    dispatch(
+      moveIssue({
+        issueId: activeId,
+        columnId: Number(overContainer),
+      }),
+    );
+    //}, 0);
   };
 
   const handleDragOver = (event: DragOverEvent) => {
     if (isFilterActive) return;
-
     const { active, over } = event;
     if (!over) return;
 
@@ -204,11 +211,22 @@ const BoardPage = () => {
             />
           </Fade>
 
-          {error && (
-            <Alert severity="error" sx={{ mb: 2 }}>
+          {/* Error Notification */}
+          <Snackbar
+            open={Boolean(error)}
+            autoHideDuration={6000}
+            onClose={handleCloseError}
+            anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+          >
+            <MuiAlert
+              onClose={handleCloseError}
+              severity="error"
+              variant="filled"
+              sx={{ width: "100%" }}
+            >
               {error}
-            </Alert>
-          )}
+            </MuiAlert>
+          </Snackbar>
 
           <Box
             sx={{

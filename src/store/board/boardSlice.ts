@@ -33,6 +33,7 @@ export interface Column {
 
 interface BoardState {
   columns: Column[];
+  previousColumns: Column[] | null; // Snapshot for rollback
   loading: boolean;
   error: string | null;
   // store ID for uniqueness, name for the UI label
@@ -42,6 +43,7 @@ interface BoardState {
 
 const initialState: BoardState = {
   columns: [],
+  previousColumns: null,
   loading: false,
   error: null,
   filterAssigneeId: null,
@@ -146,6 +148,9 @@ export const boardSlice = createSlice({
     setColumns: (state, action: PayloadAction<Column[]>) => {
       state.columns = action.payload;
     },
+    clearError: (state) => {
+      state.error = null;
+    },
     // Toggle logic using ID, but also saving Name for the UI badge
     setFilterAssignee: (
       state,
@@ -170,6 +175,14 @@ export const boardSlice = createSlice({
       const { issueId, sourceColumnId, destinationColumnId, overId } =
         action.payload;
 
+      // Create a snapshot ONLY if it doesn't exist yet (first move in drag session)
+      if (!state.previousColumns) {
+        state.previousColumns = JSON.parse(JSON.stringify(state.columns));
+      }
+
+      // Clear previous errors on new interaction
+      state.error = null;
+
       const sourceCol = state.columns.find((c) => c.id === sourceColumnId);
       const destCol = state.columns.find((c) => c.id === destinationColumnId);
 
@@ -191,12 +204,10 @@ export const boardSlice = createSlice({
       else {
         const [movedIssue] = sourceCol.issues.splice(activeIndex, 1);
         movedIssue.columnId = destinationColumnId;
-
         const overIndex = destCol.issues.findIndex(
           (i) => i.id === Number(overId),
         );
         const newIndex = overIndex >= 0 ? overIndex : destCol.issues.length;
-
         destCol.issues.splice(newIndex, 0, movedIssue);
       }
 
@@ -225,14 +236,21 @@ export const boardSlice = createSlice({
         (state, action: PayloadAction<Column[]>) => {
           state.loading = false;
           state.columns = action.payload;
+          // Clear snapshot on success
+          state.previousColumns = null;
         },
       )
-      .addCase(fetchBoard.rejected, (state, action) => {
+      /* --- Case for creating a new issue (POST) --- */
+      .addCase(createIssue.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload as string;
+        // Rollback to snapshot on failure
+        if (state.previousColumns) {
+          state.columns = state.previousColumns;
+          state.previousColumns = null;
+        }
+        state.error = action.payload as string;
       })
-
-      /* --- Case for creating a new issue (POST) --- */
       .addCase(createIssue.fulfilled, (state, action: PayloadAction<Issue>) => {
         // Find the column where the new issue belongs
         const column = state.columns.find(
@@ -252,6 +270,7 @@ export const boardSlice = createSlice({
 
 export const {
   setColumns,
+  clearError,
   setFilterAssignee,
   clearFilter,
   moveIssueOptimistic,
