@@ -1,18 +1,28 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { Provider } from "react-redux";
-import { store } from "./app/store";
-import { CssBaseline } from "@mui/material";
-import "./index.css";
-import App from "./App.tsx";
+import { Auth0Provider } from "@auth0/auth0-react";
+import CssBaseline from "@mui/material/CssBaseline";
+import { store } from "./store/store";
+// import "./index.css";
+import App from "./App";
+import { authSettings } from "./AppSettings";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    {/* Provides the Redux store to the entire application */}
-    <Provider store={store}>
-      {/* Resets default browser CSS to MUI standards */}
-      <CssBaseline />
-      <App />
-    </Provider>
+    <Auth0Provider
+      domain={authSettings.domain}
+      clientId={authSettings.clientId}
+      authorizationParams={{
+        redirect_uri: authSettings.authorizationParams.redirect_uri,
+        scope: authSettings.authorizationParams.scope,
+        audience: authSettings.authorizationParams.audience,
+      }}
+    >
+      <Provider store={store}>
+        <CssBaseline />
+        <App />
+      </Provider>
+    </Auth0Provider>
   </StrictMode>,
 );

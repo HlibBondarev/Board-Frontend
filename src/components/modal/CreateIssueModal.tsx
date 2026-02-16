@@ -12,11 +12,8 @@ import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { /* dayjs, */ Dayjs } from "dayjs"; // Now used in state type and handleSave
 import { useDispatch, useSelector } from "react-redux";
-import { type AppDispatch, type RootState } from "../../app/store";
-import {
-  createIssue,
-  type CreateIssueDto,
-} from "../../features/board/boardSlice";
+import { type AppDispatch, type RootState } from "../../store/store";
+import { createIssue, type CreateIssueDto } from "../../store/board/boardSlice";
 
 interface Props {
   open: boolean;

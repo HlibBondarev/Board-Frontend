@@ -1,5 +1,6 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { useAuth0 } from "@auth0/auth0-react";
 import {
   Box,
   Container,
@@ -13,70 +14,146 @@ import {
   Close as CloseIcon,
   FilterList as FilterIcon,
 } from "@mui/icons-material";
-/* 1. Import DragDropContext and DropResult for DND functionality */
-import { DragDropContext, type DropResult } from "@hello-pangea/dnd";
-/* 2. Import moveIssue (thunk) and moveIssueOptimistic (reducer) from your slice */
+/* 1. Import @dnd-kit for DND functionality */
+import {
+  DndContext,
+  DragOverlay,
+  type DragStartEvent,
+  closestCorners,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragOverEvent,
+} from "@dnd-kit/core";
+/* 2. Import moveIssue (thunk) and moveIssueOptimistic (reducer) from the slice */
 import {
   fetchBoard,
   clearFilter,
   moveIssue,
   moveIssueOptimistic,
-} from "../features/board/boardSlice";
-import { type RootState, type AppDispatch } from "../app/store"; // path to store
+} from "../store/board/boardSlice";
+import { setAuthToken } from "../api/axiosInstance";
+import { type RootState, type AppDispatch } from "../store/store";
 import Column from "../components/Column";
+import { type Issue } from "../store/board/boardSlice";
+import IssueCard from "../components/IssueCard";
 
 const BoardPage = () => {
   const dispatch = useDispatch<AppDispatch>();
+  const { getAccessTokenSilently } = useAuth0();
 
-  // Get columns, loading status, and errors from Redux
-  const { columns, loading, error, filterAssigneeName } = useSelector(
-    (state: RootState) => state.board,
+  /* 3. State to keep track of the currently dragged issue */
+  const [activeIssue, setActiveIssue] = useState<Issue | null>(null);
+
+  // 4. Get columns, loading status, and errors from Redux
+  const { columns, loading, error, filterAssigneeName, filterAssigneeId } =
+    useSelector((state: RootState) => state.board);
+
+  /* 5. Configure sensors with activation constraints */
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5, // Drag starts only after 5px movement to allow clicks on buttons/chips
+      },
+    }),
   );
 
   useEffect(() => {
-    // Call the API on the first render to load the board data
-    dispatch(fetchBoard());
-  }, [dispatch]);
+    let isMounted = true;
 
-  /* 3. Define the handler for when a drag operation ends */
-  const onDragEnd = (result: DropResult) => {
-    const { destination, source, draggableId } = result;
-
-    /* If there is no destination (dropped outside) or it's dropped in the same place, do nothing */
-    if (
-      !destination ||
-      (destination.droppableId === source.droppableId &&
-        destination.index === source.index)
-    ) {
-      return;
-    }
-
-    const moveData = {
-      issueId: Number(draggableId),
-      sourceColumnId: Number(source.droppableId),
-      destinationColumnId: Number(destination.droppableId),
-      newPosition: destination.index,
+    const initBoard = async () => {
+      try {
+        const token = await getAccessTokenSilently();
+        if (isMounted) {
+          setAuthToken(token);
+          dispatch(fetchBoard());
+        }
+      } catch (e) {
+        if (isMounted) {
+          console.error("Error getting token:", e);
+        }
+      }
     };
+    initBoard();
 
-    /* 4. Implement Optimistic UI update (update Redux state immediately) */
-    //dispatch(moveIssueOptimistic(payload));
-    /* Update Redux state immediately (Optimistic UI) */
+    return () => {
+      isMounted = false;
+    };
+  }, [dispatch, getAccessTokenSilently]);
+
+  const isFilterActive = Boolean(filterAssigneeId);
+
+  const handleDragStart = (event: DragStartEvent) => {
+    if (isFilterActive) return; // Block dragging when filter is active to prevent index mismatch
+
+    const { active } = event;
+    /* Find the full issue object in your existing columns state */
+    const issue = columns
+      .flatMap((col) => col.issues)
+      .find((i) => i.id === Number(active.id));
+
+    if (issue) setActiveIssue(issue);
+  };
+
+  /* 6. Logic to handle the end of a drag operation */
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveIssue(null);
+    if (isFilterActive || !over) return;
+
+    const activeId = Number(active.id);
+    const activeContainer = active.data.current?.sortable?.containerId;
+    const overContainer = over.data.current?.sortable?.containerId || over.id;
+
+    // 7. Update Redux first (Optimistic update)
+    // This ensures the 'columns' state in the next step is already updated
     dispatch(
       moveIssueOptimistic({
-        ...moveData,
-        sourceColumnId: Number(source.droppableId),
+        issueId: activeId,
+        sourceColumnId: Number(activeContainer),
+        destinationColumnId: Number(overContainer),
+        overId: over.id,
       }),
     );
 
-    /* 5. Trigger the API call to update the backend database */
-    //dispatch(moveIssue(payload));
-    /* NEW: Send request to the backend */
-    dispatch(moveIssue(moveData));
-
-    console.log("Moved Issue:", moveData);
+    // 8. Sync with Server
+    // We don't calculate 'finalIndex' here.
+    // The thunk will use getState() to find the new position from Redux store.
+    setTimeout(() => {
+      dispatch(
+        moveIssue({
+          issueId: activeId,
+          columnId: Number(overContainer),
+        }),
+      );
+    }, 0);
   };
 
-  if (loading) {
+  const handleDragOver = (event: DragOverEvent) => {
+    if (isFilterActive) return;
+
+    const { active, over } = event;
+    if (!over) return;
+
+    const activeContainer = active.data.current?.sortable?.containerId;
+    const overContainer = over.data.current?.sortable?.containerId || over.id;
+
+    // Handle cross-column movement during hover
+    if (activeContainer && overContainer && activeContainer !== overContainer) {
+      dispatch(
+        moveIssueOptimistic({
+          issueId: Number(active.id),
+          sourceColumnId: Number(activeContainer),
+          destinationColumnId: Number(overContainer),
+          overId: over.id,
+        }),
+      );
+    }
+  };
+
+  if (loading && columns.length === 0) {
+    // Show the spinner only on first load when there are no columns yet
     return (
       <Box
         sx={{
@@ -92,8 +169,14 @@ const BoardPage = () => {
   }
 
   return (
-    /* 6. Wrap the entire board content with DragDropContext */
-    <DragDropContext onDragEnd={onDragEnd}>
+    /* 4. Use DndContext */
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCorners}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      onDragOver={handleDragOver}
+    >
       <Box
         sx={{
           backgroundColor: "#ebedef",
@@ -109,7 +192,6 @@ const BoardPage = () => {
             Dashboard
           </Typography>
 
-          {/* Active Filter Badge */}
           <Fade in={Boolean(filterAssigneeName)}>
             <Chip
               icon={<FilterIcon />}
@@ -143,7 +225,13 @@ const BoardPage = () => {
           </Box>
         </Container>
       </Box>
-    </DragDropContext>
+      <DragOverlay adjustScale={true}>
+        {activeIssue ? (
+          /* Render the exact same component but as a static preview */
+          <IssueCard issue={activeIssue} isOverlay />
+        ) : null}
+      </DragOverlay>
+    </DndContext>
   );
 };
 
