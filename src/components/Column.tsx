@@ -6,7 +6,7 @@ import IssueCard from "./IssueCard";
 import CreateIssueModal from "./modal/CreateIssueModal";
 import { type Column as ColumnType } from "../store/board/boardSlice";
 import { type RootState } from "../store/store";
-/* 1. Import @dnd-kit core and sortable tools */
+/* Import @dnd-kit core and sortable tools */
 import { useDroppable } from "@dnd-kit/core";
 import {
   SortableContext,

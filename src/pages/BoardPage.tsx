@@ -27,7 +27,7 @@ import {
   type DragEndEvent,
   type DragOverEvent,
 } from "@dnd-kit/core";
-/* Import moveIssue (thunk) and moveIssueOptimistic (reducer) from the slice */
+/* Import thunks and reucers from the boardSlice */
 import {
   fetchBoard,
   clearFilter,

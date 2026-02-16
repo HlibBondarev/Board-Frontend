@@ -74,8 +74,9 @@ export interface CreateIssueDto {
   dueDate: string | null;
   columnId: number;
   positionInColumn: number;
-  creatorId: string; // Required by your model
-  createdAt: string; // Required by your model
+  createdAt: string;
+  creatorId: string;
+  assigneeId?: string;
 }
 
 export const createIssue = createAsyncThunk(
@@ -284,4 +285,5 @@ export const {
   clearFilter,
   moveIssueOptimistic,
 } = boardSlice.actions;
+
 export default boardSlice.reducer;
