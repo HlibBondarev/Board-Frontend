@@ -101,10 +101,8 @@ export interface MoveIssueDto {
   overId?: number | string; // ID of the item we dropped over
 }
 
-/**
- * Async Thunk to sync move with backend.
- * It retrieves the updated position from state after optimistic update.
- */
+// Async Thunk to sync move with backend.
+// It retrieves the updated position from state after optimistic update.
 export const moveIssue = createAsyncThunk(
   "board/moveIssue",
   async (
@@ -149,6 +147,7 @@ export const boardSlice = createSlice({
     setColumns: (state, action: PayloadAction<Column[]>) => {
       state.columns = action.payload;
     },
+    // Reducer to clear errors (can be dispatched on new interactions or after showing a Snackbar)
     clearError: (state) => {
       state.error = null;
     },
@@ -175,7 +174,6 @@ export const boardSlice = createSlice({
     moveIssueOptimistic: (state, action: PayloadAction<MoveIssueDto>) => {
       const { issueId, sourceColumnId, destinationColumnId, overId } =
         action.payload;
-
       // Create a snapshot ONLY if it doesn't exist yet (first move in drag session)
       if (!state.previousColumns) {
         state.previousColumns = JSON.parse(JSON.stringify(state.columns));
@@ -223,6 +221,7 @@ export const boardSlice = createSlice({
       }
     },
   },
+
   // Handle all Thunk lifecycle states here
   extraReducers: (builder) => {
     builder
@@ -241,6 +240,7 @@ export const boardSlice = createSlice({
         },
       )
 
+      /* --- Case for creating a new issue --- */
       .addCase(createIssue.fulfilled, (state, action: PayloadAction<Issue>) => {
         // Find the column where the new issue belongs
         const column = state.columns.find(
@@ -256,6 +256,7 @@ export const boardSlice = createSlice({
         }
       })
 
+      /* --- Case for moving the issue --- */
       .addCase(moveIssue.pending, (state) => {
         // Clear any old errors when a new move request starts
         state.error = null;
@@ -265,6 +266,7 @@ export const boardSlice = createSlice({
         state.previousColumns = null;
       })
       .addCase(moveIssue.rejected, (state, action) => {
+        // If the server rejects the move, we need to rollback to the previous state
         state.loading = false;
         // This updates state.error, which triggers the useEffect in BoardPage.tsx
         state.error =
