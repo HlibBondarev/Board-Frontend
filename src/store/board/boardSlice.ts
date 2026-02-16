@@ -5,6 +5,7 @@ import {
 } from "@reduxjs/toolkit";
 import axiosInstance from "../../api/axiosInstance";
 import { AxiosError } from "axios";
+import { arrayMove } from "@dnd-kit/sortable";
 
 export interface Issue {
   id: number;
@@ -89,35 +90,50 @@ export const createIssue = createAsyncThunk(
   },
 );
 
-// 1. Add MoveIssueDto interface
+// Add MoveIssueDto interface
 export interface MoveIssueDto {
   issueId: number;
   sourceColumnId: number;
   destinationColumnId: number;
-  newPosition: number;
+  overId?: number | string; // ID of the item we dropped over
 }
 
-// 2. Create AsyncThunk for backend sync
+/**
+ * Async Thunk to sync move with backend.
+ * It retrieves the updated position from state after optimistic update.
+ */
 export const moveIssue = createAsyncThunk(
   "board/moveIssue",
-  async (moveData: MoveIssueDto, { rejectWithValue }) => {
+  async (
+    moveData: { issueId: number; columnId: number },
+    { getState, rejectWithValue },
+  ) => {
     try {
-      // Endpoint to update ColumnId and PositionInColumn in your .NET API
-      // Sending PATCH request to API
-      // Adjust the URL according to the backend routing (e.g., /api/issues/{id}/move)
+      // Cast state to access board data
+      const state = getState() as { board: BoardState };
+
+      // Find the target column in the updated local state
+      const column = state.board.columns.find(
+        (c) => c.id === moveData.columnId,
+      );
+      if (!column) return rejectWithValue("Column not found");
+
+      // Find the issue to get its new calculated position
+      const issue = column.issues.find((i) => i.id === moveData.issueId);
+      if (!issue) return rejectWithValue("Issue not found");
+
+      // Send the new position (index) to the server
       const response = await axiosInstance.patch(
         `/issues/${moveData.issueId}/move`,
         {
-          columnId: moveData.destinationColumnId,
-          position: moveData.newPosition,
+          columnId: moveData.columnId,
+          position: issue.positionInColumn,
         },
       );
       return response.data;
     } catch (error) {
       const err = error as AxiosError<{ message?: string }>;
-      return rejectWithValue(
-        err.response?.data?.message || "Failed to sync move with server",
-      );
+      return rejectWithValue(err.response?.data?.message || "Sync failed");
     }
   },
 );
@@ -148,33 +164,52 @@ export const boardSlice = createSlice({
       state.filterAssigneeId = null;
       state.filterAssigneeName = null;
     },
-    /* 3. Reducer for local state update (Drag and Drop logic) */
+    /* Reducer for local state update (Drag and Drop logic) */
+    /* FIX: Corrected optimistic reducer to handle overId and arrayMove */
     moveIssueOptimistic: (state, action: PayloadAction<MoveIssueDto>) => {
-      const { issueId, sourceColumnId, destinationColumnId, newPosition } =
+      const { issueId, sourceColumnId, destinationColumnId, overId } =
         action.payload;
 
-      // Find source and destination columns
       const sourceCol = state.columns.find((c) => c.id === sourceColumnId);
       const destCol = state.columns.find((c) => c.id === destinationColumnId);
 
       if (!sourceCol || !destCol) return;
 
-      // Find and remove the issue from the source column
-      const issueIndex = sourceCol.issues.findIndex((i) => i.id === issueId);
-      if (issueIndex === -1) return;
+      const activeIndex = sourceCol.issues.findIndex((i) => i.id === issueId);
+      if (activeIndex === -1) return;
 
-      const [movedIssue] = sourceCol.issues.splice(issueIndex, 1);
+      // CASE 1: Moving within the same column
+      if (sourceColumnId === destinationColumnId) {
+        const overIndex = destCol.issues.findIndex(
+          (i) => i.id === Number(overId),
+        );
+        if (overIndex !== -1 && activeIndex !== overIndex) {
+          destCol.issues = arrayMove(destCol.issues, activeIndex, overIndex);
+        }
+      }
+      // CASE 2: Moving between different columns
+      else {
+        const [movedIssue] = sourceCol.issues.splice(activeIndex, 1);
+        movedIssue.columnId = destinationColumnId;
 
-      // Update the issue's columnId property
-      movedIssue.columnId = destinationColumnId;
+        const overIndex = destCol.issues.findIndex(
+          (i) => i.id === Number(overId),
+        );
+        const newIndex = overIndex >= 0 ? overIndex : destCol.issues.length;
 
-      // Insert the issue into the new position in the destination column
-      destCol.issues.splice(newPosition, 0, movedIssue);
+        destCol.issues.splice(newIndex, 0, movedIssue);
+      }
 
-      // Re-calculate positions for all issues in the affected columns (optional but recommended)
-      destCol.issues.forEach((issue, index) => {
+      // CRITICAL: Update positionInColumn based on the new array order
+      sourceCol.issues.forEach((issue, index) => {
         issue.positionInColumn = index;
       });
+
+      if (sourceColumnId !== destinationColumnId) {
+        destCol.issues.forEach((issue, index) => {
+          issue.positionInColumn = index;
+        });
+      }
     },
   },
   // Handle all Thunk lifecycle states here

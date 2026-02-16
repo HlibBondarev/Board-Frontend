@@ -1,13 +1,17 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useSelector } from "react-redux";
 import { Paper, Typography, Box, IconButton, Button } from "@mui/material";
 import { Add as AddIcon, MoreHoriz as MoreIcon } from "@mui/icons-material";
 import IssueCard from "./IssueCard";
-import CreateIssueModal from "./modal/CreateIssueModal"; // Import your new modal
+import CreateIssueModal from "./modal/CreateIssueModal";
 import { type Column as ColumnType } from "../store/board/boardSlice";
 import { type RootState } from "../store/store";
-/* 1. Import Droppable from DND library */
-import { Droppable } from "@hello-pangea/dnd";
+/* 1. Import @dnd-kit core and sortable tools */
+import { useDroppable } from "@dnd-kit/core";
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
 
 interface Props {
   column: ColumnType;
@@ -27,9 +31,26 @@ const Column = ({ column }: Props) => {
 
   /* 2. IMPORTANT: DND works best with the full list. 
      If filter is active, we disable DND logic or show filtered items as non-draggable. */
-  const visibleIssues = filterAssigneeId
-    ? column.issues?.filter((issue) => issue.assigneeId === filterAssigneeId)
-    : column.issues;
+  /* 2. Filter issues if a specific assignee filter is active */
+  const visibleIssues = useMemo(() => {
+    return filterAssigneeId
+      ? column.issues?.filter((issue) => issue.assigneeId === filterAssigneeId)
+      : column.issues;
+  }, [column.issues, filterAssigneeId]);
+
+  /* 3. Setup the column as a Droppable zone */
+  const { setNodeRef } = useDroppable({
+    id: String(column.id),
+    data: {
+      columnId: column.id, // Pass columnId to handleDragEnd in BoardPage
+    },
+  });
+
+  /* 4. Create an array of IDs for SortableContext (required by @dnd-kit) */
+  const issueIds = useMemo(
+    () => visibleIssues?.map((issue) => issue.id) || [],
+    [visibleIssues],
+  );
 
   return (
     <Paper
@@ -62,26 +83,24 @@ const Column = ({ column }: Props) => {
         </IconButton>
       </Box>
 
-      {/* Issues List Container */}
-      {/* 3. Wrap issues list with Droppable */}
-      <Droppable droppableId={String(column.id)}>
-        {(provided) => (
-          <Box
-            {...provided.droppableProps}
-            ref={provided.innerRef}
-            sx={{ flexGrow: 1, overflowY: "auto", minHeight: 100, mb: 2 }}
-          >
-            {visibleIssues?.map((issue, index) => (
-              /* 4. Pass index to IssueCard */
-              <IssueCard key={issue.id} issue={issue} index={index} />
-            ))}
-            {/* 5. Placeholder prevents column from shrinking during drag */}
-            {provided.placeholder}
-          </Box>
-        )}
-      </Droppable>
+      {/* 5. Issues List Container */}
+      <Box
+        ref={setNodeRef} // Set the droppable ref to this container
+        sx={{ flexGrow: 1, overflowY: "auto", minHeight: 100, mb: 2 }}
+      >
+        <SortableContext
+          id={String(column.id)} // ADD THIS LINE
+          items={issueIds}
+          strategy={verticalListSortingStrategy}
+        >
+          {visibleIssues?.map((issue) => (
+            /* Index is no longer required for @dnd-kit Sortable */
+            <IssueCard key={issue.id} issue={issue} />
+          ))}
+        </SortableContext>
+      </Box>
 
-      {/* Add Issue Button - now with onClick handler */}
+      {/* 6. Add Issue Button - now with onClick handler */}
       <Button
         fullWidth
         startIcon={<AddIcon />}
