@@ -50,7 +50,7 @@ const initialState: BoardState = {
   filterAssigneeName: null,
 };
 
-// 1. Create an asynchronous Thunk to load data
+// Create an asynchronous Thunk to load data
 export const fetchBoard = createAsyncThunk(
   "board/fetchBoard",
   async (_, { rejectWithValue }) => {
@@ -179,7 +179,6 @@ export const boardSlice = createSlice({
       if (!state.previousColumns) {
         state.previousColumns = JSON.parse(JSON.stringify(state.columns));
       }
-
       // Clear previous errors on new interaction
       state.error = null;
 
@@ -240,17 +239,7 @@ export const boardSlice = createSlice({
           state.previousColumns = null;
         },
       )
-      /* --- Case for creating a new issue (POST) --- */
-      .addCase(createIssue.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload as string;
-        // Rollback to snapshot on failure
-        if (state.previousColumns) {
-          state.columns = state.previousColumns;
-          state.previousColumns = null;
-        }
-        state.error = action.payload as string;
-      })
+
       .addCase(createIssue.fulfilled, (state, action: PayloadAction<Issue>) => {
         // Find the column where the new issue belongs
         const column = state.columns.find(
@@ -263,6 +252,26 @@ export const boardSlice = createSlice({
             column.issues = [];
           }
           column.issues.push(action.payload);
+        }
+      })
+
+      .addCase(moveIssue.pending, (state) => {
+        // Clear any old errors when a new move request starts
+        state.error = null;
+      })
+      .addCase(moveIssue.fulfilled, (state) => {
+        // If the server confirms the move, we no longer need the snapshot
+        state.previousColumns = null;
+      })
+      .addCase(moveIssue.rejected, (state, action) => {
+        state.loading = false;
+        // This updates state.error, which triggers the useEffect in BoardPage.tsx
+        state.error =
+          (action.payload as string) || "Failed to sync move with server";
+        //trigger rollback directly here in the reducer, since we have the snapshot and error context together
+        if (state.previousColumns) {
+          state.columns = state.previousColumns;
+          state.previousColumns = null;
         }
       });
   },

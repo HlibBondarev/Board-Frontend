@@ -15,7 +15,7 @@ import {
   Close as CloseIcon,
   FilterList as FilterIcon,
 } from "@mui/icons-material";
-/* 1. Import @dnd-kit for DND functionality */
+/* Import @dnd-kit for DND functionality */
 import {
   DndContext,
   DragOverlay,
@@ -27,7 +27,7 @@ import {
   type DragEndEvent,
   type DragOverEvent,
 } from "@dnd-kit/core";
-/* 2. Import moveIssue (thunk) and moveIssueOptimistic (reducer) from the slice */
+/* Import moveIssue (thunk) and moveIssueOptimistic (reducer) from the slice */
 import {
   fetchBoard,
   clearFilter,
@@ -45,14 +45,14 @@ const BoardPage = () => {
   const dispatch = useDispatch<AppDispatch>();
   const { getAccessTokenSilently } = useAuth0();
 
-  /* 3. State to keep track of the currently dragged issue */
+  /* State to keep track of the currently dragged issue */
   const [activeIssue, setActiveIssue] = useState<Issue | null>(null);
 
-  // 4. Get columns, loading status, and errors from Redux
+  // Get columns, loading status, errors ilterAssigneeName and filterAssigneeId from Redux
   const { columns, loading, error, filterAssigneeName, filterAssigneeId } =
     useSelector((state: RootState) => state.board);
 
-  /* 5. Configure sensors with activation constraints */
+  /* Configure sensors with activation constraints */
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -61,6 +61,7 @@ const BoardPage = () => {
     }),
   );
 
+  // effect for initial board data fetching
   useEffect(() => {
     let isMounted = true;
 
@@ -84,6 +85,9 @@ const BoardPage = () => {
     };
   }, [dispatch, getAccessTokenSilently]);
 
+  // This effect handles the state rollback specifically when an error occurs
+  useEffect(() => {}, [error]);
+
   const isFilterActive = Boolean(filterAssigneeId);
 
   const handleCloseError = (
@@ -105,7 +109,7 @@ const BoardPage = () => {
     if (issue) setActiveIssue(issue);
   };
 
-  /* 6. Logic to handle the end of a drag operation */
+  /* Logic to handle the end of a drag operation */
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveIssue(null);
@@ -115,7 +119,7 @@ const BoardPage = () => {
     const activeContainer = active.data.current?.sortable?.containerId;
     const overContainer = over.data.current?.sortable?.containerId || over.id;
 
-    // 7. Final optimistic update to fix positions
+    // Final optimistic update to fix positions
     dispatch(
       moveIssueOptimistic({
         issueId: activeId,
@@ -125,17 +129,15 @@ const BoardPage = () => {
       }),
     );
 
-    // 8. Sync with Server
+    // Sync with Server
     // We don't calculate 'finalIndex' here.
     // The thunk will use getState() to find the new position from Redux store.
-    // setTimeout(() => {
     dispatch(
       moveIssue({
         issueId: activeId,
         columnId: Number(overContainer),
       }),
     );
-    //}, 0);
   };
 
   const handleDragOver = (event: DragOverEvent) => {
@@ -176,7 +178,7 @@ const BoardPage = () => {
   }
 
   return (
-    /* 4. Use DndContext */
+    /* Use DndContext */
     <DndContext
       sensors={sensors}
       collisionDetection={closestCorners}
