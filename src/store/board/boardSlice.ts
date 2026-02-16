@@ -33,6 +33,7 @@ export interface Column {
 
 interface BoardState {
   columns: Column[];
+  previousColumns: Column[] | null; // Snapshot for rollback
   loading: boolean;
   error: string | null;
   // store ID for uniqueness, name for the UI label
@@ -42,13 +43,14 @@ interface BoardState {
 
 const initialState: BoardState = {
   columns: [],
+  previousColumns: null,
   loading: false,
   error: null,
   filterAssigneeId: null,
   filterAssigneeName: null,
 };
 
-// 1. Create an asynchronous Thunk to load data
+// Create an asynchronous Thunk to load data
 export const fetchBoard = createAsyncThunk(
   "board/fetchBoard",
   async (_, { rejectWithValue }) => {
@@ -146,6 +148,9 @@ export const boardSlice = createSlice({
     setColumns: (state, action: PayloadAction<Column[]>) => {
       state.columns = action.payload;
     },
+    clearError: (state) => {
+      state.error = null;
+    },
     // Toggle logic using ID, but also saving Name for the UI badge
     setFilterAssignee: (
       state,
@@ -170,6 +175,13 @@ export const boardSlice = createSlice({
       const { issueId, sourceColumnId, destinationColumnId, overId } =
         action.payload;
 
+      // Create a snapshot ONLY if it doesn't exist yet (first move in drag session)
+      if (!state.previousColumns) {
+        state.previousColumns = JSON.parse(JSON.stringify(state.columns));
+      }
+      // Clear previous errors on new interaction
+      state.error = null;
+
       const sourceCol = state.columns.find((c) => c.id === sourceColumnId);
       const destCol = state.columns.find((c) => c.id === destinationColumnId);
 
@@ -191,12 +203,10 @@ export const boardSlice = createSlice({
       else {
         const [movedIssue] = sourceCol.issues.splice(activeIndex, 1);
         movedIssue.columnId = destinationColumnId;
-
         const overIndex = destCol.issues.findIndex(
           (i) => i.id === Number(overId),
         );
         const newIndex = overIndex >= 0 ? overIndex : destCol.issues.length;
-
         destCol.issues.splice(newIndex, 0, movedIssue);
       }
 
@@ -225,14 +235,11 @@ export const boardSlice = createSlice({
         (state, action: PayloadAction<Column[]>) => {
           state.loading = false;
           state.columns = action.payload;
+          // Clear snapshot on success
+          state.previousColumns = null;
         },
       )
-      .addCase(fetchBoard.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload as string;
-      })
 
-      /* --- Case for creating a new issue (POST) --- */
       .addCase(createIssue.fulfilled, (state, action: PayloadAction<Issue>) => {
         // Find the column where the new issue belongs
         const column = state.columns.find(
@@ -246,12 +253,33 @@ export const boardSlice = createSlice({
           }
           column.issues.push(action.payload);
         }
+      })
+
+      .addCase(moveIssue.pending, (state) => {
+        // Clear any old errors when a new move request starts
+        state.error = null;
+      })
+      .addCase(moveIssue.fulfilled, (state) => {
+        // If the server confirms the move, we no longer need the snapshot
+        state.previousColumns = null;
+      })
+      .addCase(moveIssue.rejected, (state, action) => {
+        state.loading = false;
+        // This updates state.error, which triggers the useEffect in BoardPage.tsx
+        state.error =
+          (action.payload as string) || "Failed to sync move with server";
+        //trigger rollback directly here in the reducer, since we have the snapshot and error context together
+        if (state.previousColumns) {
+          state.columns = state.previousColumns;
+          state.previousColumns = null;
+        }
       });
   },
 });
 
 export const {
   setColumns,
+  clearError,
   setFilterAssignee,
   clearFilter,
   moveIssueOptimistic,
