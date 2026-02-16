@@ -8,7 +8,7 @@ import { AxiosError } from "axios";
 import { arrayMove } from "@dnd-kit/sortable";
 
 export interface Issue {
-  id: number;
+  id: number | string;
   title: string;
   description: string;
   dueDate?: string;
@@ -19,6 +19,7 @@ export interface Issue {
   creatorName: string;
   assigneeId?: string;
   assigneeName?: string;
+  isOptimistic?: boolean; // Flag to identify issues created during optimistic updates
 }
 
 export interface Column {
@@ -35,7 +36,7 @@ interface BoardState {
   columns: Column[];
   previousColumns: Column[] | null; // Snapshot for rollback
   loading: boolean;
-  error: string | null;
+  error: string | null; // Added to track global board errors
   // store ID for uniqueness, name for the UI label
   filterAssigneeId: string | null;
   filterAssigneeName: string | null;
@@ -49,6 +50,20 @@ const initialState: BoardState = {
   filterAssigneeId: null,
   filterAssigneeName: null,
 };
+
+export interface CreateIssueDto {
+  tempId: string; // Add this for tracking during optimistic updates
+  title: string;
+  description: string;
+  dueDate: string | null;
+  columnId: number;
+  positionInColumn: number;
+  createdAt: string;
+  creatorId: string;
+  assigneeId?: string;
+  creatorName: string | null;
+  assigneeName?: string | null;
+}
 
 // Create an asynchronous Thunk to load data
 export const fetchBoard = createAsyncThunk(
@@ -67,16 +82,6 @@ export const fetchBoard = createAsyncThunk(
     }
   },
 );
-
-export interface CreateIssueDto {
-  title: string;
-  description: string;
-  dueDate: string | null;
-  columnId: number;
-  positionInColumn: number;
-  creatorId: string; // Required by your model
-  createdAt: string; // Required by your model
-}
 
 export const createIssue = createAsyncThunk(
   "board/createIssue",
@@ -100,10 +105,8 @@ export interface MoveIssueDto {
   overId?: number | string; // ID of the item we dropped over
 }
 
-/**
- * Async Thunk to sync move with backend.
- * It retrieves the updated position from state after optimistic update.
- */
+// Async Thunk to sync move with backend.
+// It retrieves the updated position from state after optimistic update.
 export const moveIssue = createAsyncThunk(
   "board/moveIssue",
   async (
@@ -148,6 +151,7 @@ export const boardSlice = createSlice({
     setColumns: (state, action: PayloadAction<Column[]>) => {
       state.columns = action.payload;
     },
+    // Reducer to clear errors (can be dispatched on new interactions or after showing a Snackbar)
     clearError: (state) => {
       state.error = null;
     },
@@ -174,7 +178,6 @@ export const boardSlice = createSlice({
     moveIssueOptimistic: (state, action: PayloadAction<MoveIssueDto>) => {
       const { issueId, sourceColumnId, destinationColumnId, overId } =
         action.payload;
-
       // Create a snapshot ONLY if it doesn't exist yet (first move in drag session)
       if (!state.previousColumns) {
         state.previousColumns = JSON.parse(JSON.stringify(state.columns));
@@ -222,6 +225,7 @@ export const boardSlice = createSlice({
       }
     },
   },
+
   // Handle all Thunk lifecycle states here
   extraReducers: (builder) => {
     builder
@@ -240,21 +244,51 @@ export const boardSlice = createSlice({
         },
       )
 
-      .addCase(createIssue.fulfilled, (state, action: PayloadAction<Issue>) => {
-        // Find the column where the new issue belongs
+      /* --- Case for creating a new issue --- */
+      .addCase(createIssue.pending, (state, action) => {
+        const dto = action.meta.arg;
+        const column = state.columns.find((c) => c.id === dto.columnId);
+        if (column) {
+          if (!column.issues) column.issues = [];
+          column.issues.push({
+            ...dto,
+            id: dto.tempId, // Use tempId as ID for React key
+            creatorName: dto.creatorName || null,
+            assigneeName: dto.assigneeName || null,
+            isOptimistic: true,
+          } as Issue);
+        }
+      })
+      .addCase(createIssue.fulfilled, (state, action) => {
+        const tempId = action.meta.arg.tempId; // Get tempId from the call arguments
         const column = state.columns.find(
           (c) => c.id === action.payload.columnId,
         );
-
-        if (column) {
-          // Ensure issues array exists before pushing
-          if (!column.issues) {
-            column.issues = [];
+        if (column && column.issues) {
+          const index = column.issues.findIndex((i) => i.id === tempId);
+          if (index !== -1) {
+            // Replace temp issue with real one from server
+            column.issues[index] = { ...action.payload, isOptimistic: false };
           }
-          column.issues.push(action.payload);
         }
       })
+      .addCase(createIssue.rejected, (state, action) => {
+        const tempId = action.meta.arg.tempId;
+        const column = state.columns.find(
+          (c) => c.id === action.meta.arg.columnId,
+        );
+        if (column && column.issues) {
+          // Precise rollback using unique tempId
+          column.issues = column.issues.filter((i) => i.id !== tempId);
+        }
 
+        // Set error message from rejectWithValue or fallback
+        state.error =
+          (action.payload as string) ||
+          "Failed to save issue. Please try again.";
+      })
+
+      /* --- Case for moving the issue --- */
       .addCase(moveIssue.pending, (state) => {
         // Clear any old errors when a new move request starts
         state.error = null;
@@ -264,6 +298,7 @@ export const boardSlice = createSlice({
         state.previousColumns = null;
       })
       .addCase(moveIssue.rejected, (state, action) => {
+        // If the server rejects the move, we need to rollback to the previous state
         state.loading = false;
         // This updates state.error, which triggers the useEffect in BoardPage.tsx
         state.error =
@@ -284,4 +319,5 @@ export const {
   clearFilter,
   moveIssueOptimistic,
 } = boardSlice.actions;
+
 export default boardSlice.reducer;
