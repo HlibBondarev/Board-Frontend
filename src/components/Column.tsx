@@ -31,7 +31,7 @@ const Column = ({ column }: Props) => {
 
   /* 2. IMPORTANT: DND works best with the full list. 
      If filter is active, we disable DND logic or show filtered items as non-draggable. */
-  /* 2. Filter issues if a specific assignee filter is active */
+  /* Filter issues if a specific assignee filter is active */
   const visibleIssues = useMemo(() => {
     return filterAssigneeId
       ? column.issues?.filter((issue) => issue.assigneeId === filterAssigneeId)

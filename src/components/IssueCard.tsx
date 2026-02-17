@@ -9,7 +9,7 @@ import {
 } from "@mui/material";
 import { CalendarToday } from "@mui/icons-material";
 import dayjs from "dayjs";
-import { type Issue } from "../store/board/boardSlice";
+import { type IssueDto } from "../store/board/boardSlice";
 import { useDispatch, useSelector } from "react-redux";
 import { setFilterAssignee } from "../store/board/boardSlice";
 import { type RootState } from "../store/store";
@@ -18,7 +18,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
 interface Props {
-  issue: Issue;
+  issue: IssueDto;
   isOverlay?: boolean; // Add this line (question mark means it's optional)
 }
 

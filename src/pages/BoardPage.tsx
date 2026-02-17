@@ -38,7 +38,7 @@ import {
 import { setAuthToken } from "../api/axiosInstance";
 import { type RootState, type AppDispatch } from "../store/store";
 import Column from "../components/Column";
-import { type Issue } from "../store/board/boardSlice";
+import { type IssueDto } from "../store/board/boardSlice";
 import IssueCard from "../components/IssueCard";
 import GlobalErrorSnackbar from "../components/GlobalErrorSnackbar";
 
@@ -47,7 +47,7 @@ const BoardPage = () => {
   const { getAccessTokenSilently } = useAuth0();
 
   /* State to keep track of the currently dragged issue */
-  const [activeIssue, setActiveIssue] = useState<Issue | null>(null);
+  const [activeIssue, setActiveIssue] = useState<IssueDto | null>(null);
 
   // Get columns, loading status, errors ilterAssigneeName and filterAssigneeId from Redux
   const { columns, loading, error, filterAssigneeName, filterAssigneeId } =
@@ -90,14 +90,6 @@ const BoardPage = () => {
   useEffect(() => {}, [error]);
 
   const isFilterActive = Boolean(filterAssigneeId);
-
-  // const handleCloseError = (
-  //   _event?: React.SyntheticEvent | Event,
-  //   reason?: string,
-  // ) => {
-  //   if (reason === "clickaway") return;
-  //   dispatch(clearError());
-  // };
 
   const handleDragStart = (event: DragStartEvent) => {
     if (isFilterActive) return; // Block dragging when filter is active to prevent index mismatch
@@ -212,22 +204,6 @@ const BoardPage = () => {
               sx={{ fontWeight: 600 }}
             />
           </Fade>
-          {/* Error Notification */}
-          {/* <Snackbar
-            open={Boolean(error)}
-            autoHideDuration={6000}
-            onClose={handleCloseError}
-            anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-          >
-            <MuiAlert
-              onClose={handleCloseError}
-              severity="error"
-              variant="filled"
-              sx={{ width: "100%" }}
-            >
-              {error}
-            </MuiAlert>
-          </Snackbar> */}
           <GlobalErrorSnackbar /> {/* Listens for errors globally */}
           <Box
             sx={{

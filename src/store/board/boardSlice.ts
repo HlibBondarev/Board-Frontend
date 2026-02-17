@@ -7,7 +7,7 @@ import axiosInstance from "../../api/axiosInstance";
 import { AxiosError } from "axios";
 import { arrayMove } from "@dnd-kit/sortable";
 
-export interface Issue {
+export interface IssueDto {
   id: number | string;
   title: string;
   description: string;
@@ -19,7 +19,7 @@ export interface Issue {
   creatorName: string;
   assigneeId?: string;
   assigneeName?: string;
-  isOptimistic?: boolean; // Flag to identify issues created during optimistic updates
+  isOptimistic?: boolean; // Flag to identify issues created or updated during optimistic updates
 }
 
 export interface Column {
@@ -29,7 +29,7 @@ export interface Column {
   position: number;
   userId: string;
   UserDisplayName: string;
-  issues: Issue[];
+  issues: IssueDto[];
 }
 
 interface BoardState {
@@ -65,6 +65,14 @@ export interface CreateIssueDto {
   assigneeName?: string | null;
 }
 
+// Add MoveIssueDto interface
+export interface MoveIssueDto {
+  issueId: number;
+  sourceColumnId: number;
+  destinationColumnId: number;
+  overId?: number | string; // ID of the item we dropped over
+}
+
 // Create an asynchronous Thunk to load data
 export const fetchBoard = createAsyncThunk(
   "board/fetchBoard",
@@ -88,7 +96,7 @@ export const createIssue = createAsyncThunk(
   async (newIssue: CreateIssueDto, { rejectWithValue }) => {
     try {
       // POST request to your .NET API (e.g., https://localhost:7283/api/issues)
-      const response = await axiosInstance.post<Issue>("/issues", newIssue);
+      const response = await axiosInstance.post<IssueDto>("/issues", newIssue);
       return response.data;
     } catch (error) {
       const err = error as AxiosError<{ message?: string }>;
@@ -96,14 +104,6 @@ export const createIssue = createAsyncThunk(
     }
   },
 );
-
-// Add MoveIssueDto interface
-export interface MoveIssueDto {
-  issueId: number;
-  sourceColumnId: number;
-  destinationColumnId: number;
-  overId?: number | string; // ID of the item we dropped over
-}
 
 // Async Thunk to sync move with backend.
 // It retrieves the updated position from state after optimistic update.
@@ -256,7 +256,7 @@ export const boardSlice = createSlice({
             creatorName: dto.creatorName || null,
             assigneeName: dto.assigneeName || null,
             isOptimistic: true,
-          } as Issue);
+          } as IssueDto);
         }
       })
       .addCase(createIssue.fulfilled, (state, action) => {
