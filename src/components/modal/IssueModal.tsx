@@ -1,4 +1,4 @@
-import { useState /* , useEffect */ } from "react";
+import { useState } from "react";
 import {
   Dialog,
   DialogTitle,
@@ -7,15 +7,16 @@ import {
   DialogActions,
   Button,
   Box,
+  Typography,
   Tooltip,
-  ToggleButton,
+  ToggleButton, // Use ToggleButton for better UX
 } from "@mui/material";
 import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
-import { /* dayjs, */ Dayjs } from "dayjs";
-import { useDispatch } from "react-redux";
-import { useAuth0 } from "@auth0/auth0-react";
-import { type AppDispatch } from "../../store/store";
+import dayjs, { Dayjs } from "dayjs";
+import { useDispatch, useSelector } from "react-redux";
+import { useAuth0 } from "@auth0/auth0-react"; // Assuming Auth0 is used based on AppSettings
+import { type AppDispatch, type RootState } from "../../store/store";
 import {
   createIssue,
   updateIssue,
@@ -23,7 +24,10 @@ import {
   type CreateIssueDto,
   type UpdateIssueDto,
 } from "../../store/board/boardSlice";
-import { PersonAddAlt1 as PersonIcon } from "@mui/icons-material";
+import {
+  PersonAddAlt as PersonIcon,
+  PersonOff as PersonOffIcon,
+} from "@mui/icons-material";
 
 interface Props {
   open: boolean;
@@ -34,23 +38,25 @@ interface Props {
 
 const IssueModal = ({ open, handleClose, columnId, issue }: Props) => {
   const dispatch = useDispatch<AppDispatch>();
-  const { user } = useAuth0();
+  const { user } = useAuth0(); // Get current authenticated user
 
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [dueDate, setDueDate] = useState<Dayjs | null>(null);
-  const [isSelfAssigned, setIsSelfAssigned] = useState(false);
+  // 1. User inputs: Title, Description, and optionally Due Date
+  const [title, setTitle] = useState(issue?.title || "");
+  const [description, setDescription] = useState(issue?.description || "");
+  const [dueDate, setDueDate] = useState<Dayjs | null>(
+    issue?.dueDate ? dayjs(issue.dueDate) : null,
+  );
+  // State for "Assign yourself" feature
+  const [isSelfAssigned, setIsSelfAssigned] = useState(
+    issue?.assigneeId === user?.sub ? true : false,
+  );
 
-  // useEffect(() => {
-  //   if (open) {
-  //     setTitle(issue?.title || "");
-  //     setDescription(issue?.description || "");
-  //     setDueDate(issue?.dueDate ? dayjs(issue.dueDate) : null);
-  //     setIsSelfAssigned(issue?.assigneeId === user?.sub);
-  //   }
-  // }, [issue, open, user?.sub]);
+  // 2. Calculated properties from existing state
+  const columns = useSelector((state: RootState) => state.board.columns);
+  const currentColumn = columns.find((c) => c.id === columnId);
+  const nextPosition = currentColumn?.issues?.length || 0; // Position is 0-based index
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (issue) {
       // Use UpdateIssueDto (no creatorName)
       const updatePayload: UpdateIssueDto = {
@@ -72,7 +78,7 @@ const IssueModal = ({ open, handleClose, columnId, issue }: Props) => {
         description,
         dueDate: dueDate ? dueDate.toISOString() : null,
         columnId,
-        positionInColumn: 0,
+        positionInColumn: nextPosition,
         createdAt: new Date().toISOString(),
         creatorId: user?.sub || "guest",
         creatorName: user?.name || null,
@@ -81,13 +87,20 @@ const IssueModal = ({ open, handleClose, columnId, issue }: Props) => {
       };
       dispatch(createIssue(createPayload));
     }
+
+    //handleClose(); // Close modal immediately for "fast" feel
+    // Reset state and close modal
+    setTitle("");
+    setDescription("");
+    setDueDate(null);
+    setIsSelfAssigned(false);
     handleClose();
   };
 
   return (
     <Dialog open={open} onClose={handleClose} fullWidth maxWidth="xs">
       <DialogTitle sx={{ fontWeight: 700 }}>
-        {issue ? "Update Task" : "Add New Task"}
+        {issue ? "Update Issue" : "Add New Issue"}
       </DialogTitle>
       <DialogContent>
         <Box sx={{ display: "flex", flexDirection: "column", gap: 3, pt: 1 }}>
@@ -105,29 +118,69 @@ const IssueModal = ({ open, handleClose, columnId, issue }: Props) => {
             rows={3}
             fullWidth
           />
-          <Box sx={{ display: "flex", gap: 1 }}>
+
+          <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1 }}>
             <LocalizationProvider dateAdapter={AdapterDayjs}>
               <DatePicker
-                label="Deadline"
+                label="Deadline (Optional)"
                 value={dueDate}
-                onChange={(v) => setDueDate(v)}
-                slotProps={{ textField: { fullWidth: true } }}
+                onChange={(newValue) => setDueDate(newValue)}
+                slotProps={{
+                  textField: {
+                    fullWidth: true,
+                    variant: "outlined",
+                  },
+                }}
               />
             </LocalizationProvider>
-            <Tooltip title="Assign to me">
+
+            {/* Improved Toggle Button Design */}
+            <Tooltip
+              title={isSelfAssigned ? "Unassign yourself" : "Assign to me"}
+              arrow
+            >
               <ToggleButton
                 value="check"
                 selected={isSelfAssigned}
                 onChange={() => setIsSelfAssigned(!isSelfAssigned)}
-                sx={{ width: 56, height: 56 }}
+                color="primary"
+                sx={{
+                  height: "56px", // Matches Material UI standard text field height
+                  width: "56px", // Makes it square to save space
+                  borderRadius: 1,
+                  flexShrink: 0, // Prevents the button from shrinking
+                  border: "1px solid rgba(0, 0, 0, 0.23)", // Matches TextField border
+                  "&.Mui-selected": {
+                    backgroundColor: "primary.main",
+                    color: "white",
+                    "&:hover": {
+                      backgroundColor: "primary.dark",
+                    },
+                  },
+                }}
               >
-                <PersonIcon color={isSelfAssigned ? "primary" : "inherit"} />
+                {isSelfAssigned ? <PersonIcon /> : <PersonOffIcon />}
               </ToggleButton>
             </Tooltip>
           </Box>
+
+          {isSelfAssigned && (
+            <Typography
+              variant="caption"
+              sx={{
+                mt: -2,
+                display: "flex",
+                alignItems: "center",
+                color: "primary.main",
+                fontWeight: 500,
+              }}
+            >
+              <PersonIcon sx={{ fontSize: 14, mr: 0.5 }} /> Assigned to you
+            </Typography>
+          )}
         </Box>
       </DialogContent>
-      <DialogActions sx={{ p: 3 }}>
+      <DialogActions sx={{ px: 3, pb: 3 }}>
         <Button onClick={handleClose} color="inherit">
           Cancel
         </Button>
@@ -135,6 +188,7 @@ const IssueModal = ({ open, handleClose, columnId, issue }: Props) => {
           onClick={handleSave}
           variant="contained"
           disabled={!title.trim()}
+          disableElevation
         >
           {issue ? "Save" : "Create"}
         </Button>

@@ -73,7 +73,7 @@ export interface UpdateIssueDto {
   columnId: number;
   //positionInColumn: number;
   // creatorId: string;
-  // assigneeId?: string;
+  assigneeId?: string | undefined;
   //assigneeName?: string | null;
 }
 
@@ -324,9 +324,9 @@ export const boardSlice = createSlice({
           }
         }
       })
-
       /* --- Issue Updating (Optimistic) --- */
       .addCase(updateIssue.pending, (state, action) => {
+        state.previousColumns = current(state.columns);
         const updated = action.meta.arg;
         const column = state.columns.find((c) => c.id === updated.columnId);
         const issue = column?.issues.find((i) => i.id === updated.id);
@@ -334,9 +334,9 @@ export const boardSlice = createSlice({
           Object.assign(issue, { ...updated, isOptimistic: true });
         }
       })
-
       /* --- Issue Deletion (Optimistic) --- */
       .addCase(deleteIssue.pending, (state, action) => {
+        state.previousColumns = current(state.columns);
         const { id, columnId } = action.meta.arg;
         const column = state.columns.find((c) => c.id === columnId);
         if (column) {
@@ -345,7 +345,6 @@ export const boardSlice = createSlice({
       })
 
       /* --- Universal Matchers for DRY Logic --- */
-
       // Handle all pending board actions
       .addMatcher(
         (action) =>

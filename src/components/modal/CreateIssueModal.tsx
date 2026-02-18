@@ -9,9 +9,7 @@ import {
   Box,
   Typography,
   Tooltip,
-  // IconButton,
   ToggleButton, // Use ToggleButton for better UX
-  // InputAdornment,
 } from "@mui/material";
 import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
@@ -21,7 +19,7 @@ import { useAuth0 } from "@auth0/auth0-react"; // Assuming Auth0 is used based o
 import { type AppDispatch, type RootState } from "../../store/store";
 import { createIssue, type CreateIssueDto } from "../../store/board/boardSlice";
 import {
-  PersonAddAlt1 as PersonIcon,
+  PersonAddAlt as PersonIcon,
   PersonOff as PersonOffIcon,
 } from "@mui/icons-material";
 
