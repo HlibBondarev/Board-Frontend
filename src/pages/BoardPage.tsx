@@ -6,10 +6,8 @@ import {
   Container,
   Typography,
   CircularProgress,
-  // Alert as MuiAlert,
   Chip,
   Fade,
-  // Snackbar,
 } from "@mui/material";
 import {
   Close as CloseIcon,
@@ -33,7 +31,6 @@ import {
   clearFilter,
   moveIssue,
   moveIssueOptimistic,
-  // clearError,
 } from "../store/board/boardSlice";
 import { setAuthToken } from "../api/axiosInstance";
 import { type RootState, type AppDispatch } from "../store/store";
