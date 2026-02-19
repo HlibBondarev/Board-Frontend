@@ -65,9 +65,8 @@ const IssueModal = ({ open, handleClose, columnId, issue }: Props) => {
         description,
         dueDate: dueDate ? dueDate.toISOString() : null,
         columnId: issue.columnId,
-        //positionInColumn: issue.positionInColumn,
-        //assigneeId: isSelfAssigned ? user?.sub : undefined,
-        //assigneeName: isSelfAssigned ? user?.name : null,
+        assigneeId: isSelfAssigned ? user?.sub : undefined,
+        assigneeName: isSelfAssigned ? user?.name : null,
       };
       dispatch(updateIssue(updatePayload));
     } else {
@@ -86,19 +85,24 @@ const IssueModal = ({ open, handleClose, columnId, issue }: Props) => {
         assigneeName: isSelfAssigned ? user?.name || null : undefined,
       };
       dispatch(createIssue(createPayload));
+
+      setTitle("");
+      setDescription("");
+      setDueDate(null);
+      setIsSelfAssigned(false);
     }
 
-    //handleClose(); // Close modal immediately for "fast" feel
-    // Reset state and close modal
-    setTitle("");
-    setDescription("");
-    setDueDate(null);
-    setIsSelfAssigned(false);
-    handleClose();
+    handleClose(); // Close modal immediately for "fast" feel
   };
 
   return (
-    <Dialog open={open} onClose={handleClose} fullWidth maxWidth="xs">
+    <Dialog
+      open={open}
+      onClose={handleClose}
+      disablePortal={false}
+      fullWidth
+      maxWidth="xs"
+    >
       <DialogTitle sx={{ fontWeight: 700 }}>
         {issue ? "Update Issue" : "Add New Issue"}
       </DialogTitle>

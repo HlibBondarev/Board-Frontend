@@ -114,7 +114,7 @@ const Column = ({ column }: Props) => {
           "&:hover": { backgroundColor: "rgba(0, 0, 0, 0.05)" },
         }}
       >
-        Add a card
+        Add an issue
       </Button>
 
       {/* Render the modal and pass necessary props */}

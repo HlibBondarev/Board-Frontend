@@ -54,7 +54,7 @@ const BoardPage = () => {
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 5, // Drag starts only after 5px movement to allow clicks on buttons/chips
+        distance: 8, // Drag starts only after 5px movement to allow clicks on buttons/chips
       },
     }),
   );

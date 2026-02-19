@@ -23,6 +23,11 @@ export interface IssueDto {
   isOptimistic?: boolean; // Flag to identify issues created or updated during optimistic updates
 }
 
+interface DeleteIssueResponse {
+  columnId: number;
+  issues: IssueDto[]; // Updated list of issues after deletion
+}
+
 export interface Column {
   id: number;
   name: string;
@@ -71,10 +76,8 @@ export interface UpdateIssueDto {
   description: string;
   dueDate?: string | null;
   columnId: number;
-  //positionInColumn: number;
-  // creatorId: string;
   assigneeId?: string | undefined;
-  //assigneeName?: string | null;
+  assigneeName?: string | null;
 }
 
 // Add MoveIssueDto interface
@@ -125,9 +128,9 @@ export const updateIssue = createAsyncThunk(
   "board/updateIssue",
   async (updatedIssue: UpdateIssueDto, { rejectWithValue }) => {
     try {
-      // PUT request to .NET API (e.g., https://localhost:7283/api/issues/{id})
+      // PUT request to .NET API (e.g., https://localhost:7283/api/issues)
       const response = await axiosInstance.put<IssueDto>(
-        `/issues/${updatedIssue.id}`,
+        "/issues",
         updatedIssue,
       );
       return response.data;
@@ -148,8 +151,11 @@ export const deleteIssue = createAsyncThunk(
     { rejectWithValue },
   ) => {
     try {
-      await axiosInstance.delete(`/issues/${payload.id}`);
-      return payload;
+      // DELETE request to .NET API (e.g., https://localhost:7283/api/issues/)
+      const response = await axiosInstance.delete<DeleteIssueResponse>(
+        `/issues/${payload.id}`,
+      );
+      return response.data;
     } catch (error) {
       const err = error as AxiosError<{ message?: string }>;
       return rejectWithValue(
@@ -294,10 +300,11 @@ export const boardSlice = createSlice({
           state.columns = action.payload;
         },
       )
-
       /* --- Issue Creation (Optimistic) --- */
       .addCase(createIssue.pending, (state, action) => {
-        state.previousColumns = current(state.columns);
+        if (!state.previousColumns || state.previousColumns.length === 0) {
+          state.previousColumns = current(state.columns);
+        }
         const dto = action.meta.arg;
         const column = state.columns.find((c) => c.id === dto.columnId);
         if (column) {
@@ -326,7 +333,9 @@ export const boardSlice = createSlice({
       })
       /* --- Issue Updating (Optimistic) --- */
       .addCase(updateIssue.pending, (state, action) => {
-        state.previousColumns = current(state.columns);
+        if (!state.previousColumns || state.previousColumns.length === 0) {
+          state.previousColumns = current(state.columns);
+        }
         const updated = action.meta.arg;
         const column = state.columns.find((c) => c.id === updated.columnId);
         const issue = column?.issues.find((i) => i.id === updated.id);
@@ -334,13 +343,32 @@ export const boardSlice = createSlice({
           Object.assign(issue, { ...updated, isOptimistic: true });
         }
       })
+      .addCase(updateIssue.fulfilled, (state, action) => {
+        const { id, columnId } = action.payload;
+        const column = state.columns.find((c) => c.id === columnId);
+        const issue = column?.issues.find((i) => i.id === id);
+
+        if (issue) {
+          Object.assign(issue, action.payload, { isOptimistic: false });
+        }
+      })
       /* --- Issue Deletion (Optimistic) --- */
       .addCase(deleteIssue.pending, (state, action) => {
-        state.previousColumns = current(state.columns);
+        if (!state.previousColumns || state.previousColumns.length === 0) {
+          state.previousColumns = current(state.columns);
+        }
         const { id, columnId } = action.meta.arg;
         const column = state.columns.find((c) => c.id === columnId);
         if (column) {
           column.issues = column.issues.filter((i) => i.id !== id);
+        }
+      })
+      .addCase(deleteIssue.fulfilled, (state, action) => {
+        const { columnId, issues } = action.payload;
+        const column = state.columns.find((c) => c.id === columnId);
+
+        if (column) {
+          column.issues = issues;
         }
       })
 
@@ -349,16 +377,8 @@ export const boardSlice = createSlice({
       .addMatcher(
         (action) =>
           action.type.startsWith("board/") && action.type.endsWith("/pending"),
-        (state /* , action */) => {
+        (state) => {
           state.error = null; // Clear error on every new attempt
-
-          // // Take a snapshot for rollback (skip for fetchBoard to avoid overwriting state with current)
-          // if (
-          //   action.type !== fetchBoard.pending.type &&
-          //   action.type !== moveIssue.pending.type // We handle snapshot in moveIssueOptimistic
-          // ) {
-          //   state.previousColumns = current(state.columns);
-          // }
         },
       )
       // Handle all fulfilled board actions
@@ -376,13 +396,11 @@ export const boardSlice = createSlice({
           action.type.startsWith("board/") && action.type.endsWith("/rejected"),
         (state, action: PayloadAction<string>) => {
           state.loading = false;
-
           // Automatic rollback to the state before the failed operation
           if (state.previousColumns) {
             state.columns = state.previousColumns;
             state.previousColumns = null;
           }
-
           // Set error message from payload or generic fallback
           state.error = action.payload || "Operation failed";
         },

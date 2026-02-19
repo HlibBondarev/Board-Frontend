@@ -61,11 +61,14 @@ const IssueCard = ({ issue, isOverlay = false }: Props) => {
   const activeFilterId = useSelector(
     (state: RootState) => state.board.filterAssigneeId,
   );
-  const [editOpen, setEditOpen] = useState(false);
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
+  // State to manage modal visibility
+  const [isModalOpen, setIsModalOpen] = useState(false);
   // Functions to open and close the modal
-  const handleCloseModal = () => setEditOpen(false);
+  const handleOpenModal = () => setIsModalOpen(true);
+  const handleCloseModal = () => setIsModalOpen(false);
+
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
   /* 2. Initialize sortable logic */
   const {
@@ -123,7 +126,7 @@ const IssueCard = ({ issue, isOverlay = false }: Props) => {
     >
       <CardContent sx={{ "&:last-child": { pb: 2 } }}>
         <Box sx={{ position: "absolute", top: 4, right: 4, display: "flex" }}>
-          <IconButton size="small" onClick={() => setEditOpen(true)}>
+          <IconButton size="small" onClick={handleOpenModal}>
             <EditIcon fontSize="inherit" />
           </IconButton>
           <IconButton
@@ -221,13 +224,17 @@ const IssueCard = ({ issue, isOverlay = false }: Props) => {
             </Tooltip>
           )}
         </Box>
-        <IssueModal
-          open={editOpen}
-          handleClose={handleCloseModal}
-          columnId={issue.columnId}
-          issue={issue}
-        />
-
+        <Box
+          onPointerDown={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          <IssueModal
+            open={isModalOpen}
+            handleClose={handleCloseModal}
+            columnId={issue.columnId}
+            issue={issue}
+          />
+        </Box>
         <Dialog
           open={deleteConfirmOpen}
           onClose={() => setDeleteConfirmOpen(false)}
