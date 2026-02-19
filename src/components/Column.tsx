@@ -3,7 +3,9 @@ import { useSelector } from "react-redux";
 import { Paper, Typography, Box, IconButton, Button } from "@mui/material";
 import { Add as AddIcon, MoreHoriz as MoreIcon } from "@mui/icons-material";
 import IssueCard from "./IssueCard";
-import CreateIssueModal from "./modal/CreateIssueModal";
+//import CreateIssueModal from "./modal/CreateIssueModal";
+//import IssueModal from "./modal/IssueModal";
+import IssueModal from "./modal/IssueModal";
 import { type Column as ColumnType } from "../store/board/boardSlice";
 import { type RootState } from "../store/store";
 /* 1. Import @dnd-kit core and sortable tools */
@@ -31,7 +33,7 @@ const Column = ({ column }: Props) => {
 
   /* 2. IMPORTANT: DND works best with the full list. 
      If filter is active, we disable DND logic or show filtered items as non-draggable. */
-  /* 2. Filter issues if a specific assignee filter is active */
+  /* Filter issues if a specific assignee filter is active */
   const visibleIssues = useMemo(() => {
     return filterAssigneeId
       ? column.issues?.filter((issue) => issue.assigneeId === filterAssigneeId)
@@ -112,11 +114,11 @@ const Column = ({ column }: Props) => {
           "&:hover": { backgroundColor: "rgba(0, 0, 0, 0.05)" },
         }}
       >
-        Add a card
+        Add an issue
       </Button>
 
       {/* Render the modal and pass necessary props */}
-      <CreateIssueModal
+      <IssueModal
         open={isModalOpen}
         handleClose={handleCloseModal}
         columnId={column.id}

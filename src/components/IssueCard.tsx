@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   Card,
   CardContent,
@@ -6,20 +7,30 @@ import {
   Chip,
   Avatar,
   Tooltip,
+  IconButton,
+  Dialog,
+  DialogTitle,
+  DialogActions,
+  Button,
 } from "@mui/material";
 import { CalendarToday } from "@mui/icons-material";
 import dayjs from "dayjs";
-import { type Issue } from "../store/board/boardSlice";
+import { deleteIssue, type IssueDto } from "../store/board/boardSlice";
 import { useDispatch, useSelector } from "react-redux";
 import { setFilterAssignee } from "../store/board/boardSlice";
-import { type RootState } from "../store/store";
+import { type AppDispatch, type RootState } from "../store/store";
 /* 1. Import dnd-kit sortable hooks and utilities */
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import {
+  Edit as EditIcon,
+  DeleteOutline as DeleteIcon,
+} from "@mui/icons-material";
+import IssueModal from "./modal/IssueModal";
 
 interface Props {
-  issue: Issue;
-  isOverlay?: boolean; // Add this line (question mark means it's optional)
+  issue: IssueDto;
+  isOverlay?: boolean;
 }
 
 /**
@@ -46,10 +57,18 @@ const stringToColor = (string: string) => {
 };
 
 const IssueCard = ({ issue, isOverlay = false }: Props) => {
-  const dispatch = useDispatch();
+  const dispatch = useDispatch<AppDispatch>();
   const activeFilterId = useSelector(
     (state: RootState) => state.board.filterAssigneeId,
   );
+
+  // State to manage modal visibility
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  // Functions to open and close the modal
+  const handleOpenModal = () => setIsModalOpen(true);
+  const handleCloseModal = () => setIsModalOpen(false);
+
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
   /* 2. Initialize sortable logic */
   const {
@@ -95,6 +114,7 @@ const IssueCard = ({ issue, isOverlay = false }: Props) => {
       {...(isOverlay ? {} : { ...attributes, ...listeners })}
       variant="outlined"
       sx={{
+        position: "relative",
         mb: 1.5,
         borderRadius: 2,
         backgroundColor: "white",
@@ -105,6 +125,18 @@ const IssueCard = ({ issue, isOverlay = false }: Props) => {
       }}
     >
       <CardContent sx={{ "&:last-child": { pb: 2 } }}>
+        <Box sx={{ position: "absolute", top: 4, right: 4, display: "flex" }}>
+          <IconButton size="small" onClick={handleOpenModal}>
+            <EditIcon fontSize="inherit" />
+          </IconButton>
+          <IconButton
+            size="small"
+            color="error"
+            onClick={() => setDeleteConfirmOpen(true)}
+          >
+            <DeleteIcon fontSize="inherit" />
+          </IconButton>
+        </Box>
         <Typography variant="subtitle1" fontWeight="600" gutterBottom>
           {issue.title}
         </Typography>
@@ -192,6 +224,39 @@ const IssueCard = ({ issue, isOverlay = false }: Props) => {
             </Tooltip>
           )}
         </Box>
+        <Box
+          onPointerDown={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          <IssueModal
+            open={isModalOpen}
+            handleClose={handleCloseModal}
+            columnId={issue.columnId}
+            issue={issue}
+          />
+        </Box>
+        <Dialog
+          open={deleteConfirmOpen}
+          onClose={() => setDeleteConfirmOpen(false)}
+        >
+          <DialogTitle sx={{ fontSize: "1.1rem" }}>
+            Are you sure you want to delete this issue?
+          </DialogTitle>
+          <DialogActions sx={{ p: 2 }}>
+            <Button onClick={() => setDeleteConfirmOpen(false)}>Cancel</Button>
+            <Button
+              onClick={() =>
+                dispatch(
+                  deleteIssue({ id: issue.id, columnId: issue.columnId }),
+                )
+              }
+              color="error"
+              variant="contained"
+            >
+              Delete
+            </Button>
+          </DialogActions>
+        </Dialog>
       </CardContent>
     </Card>
   );

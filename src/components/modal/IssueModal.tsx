@@ -13,11 +13,17 @@ import {
 } from "@mui/material";
 import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
-import { Dayjs } from "dayjs";
+import dayjs, { Dayjs } from "dayjs";
 import { useDispatch, useSelector } from "react-redux";
 import { useAuth0 } from "@auth0/auth0-react"; // Assuming Auth0 is used based on AppSettings
 import { type AppDispatch, type RootState } from "../../store/store";
-import { createIssue, type CreateIssueDto } from "../../store/board/boardSlice";
+import {
+  createIssue,
+  updateIssue,
+  type IssueDto,
+  type CreateIssueDto,
+  type UpdateIssueDto,
+} from "../../store/board/boardSlice";
 import {
   PersonAddAlt as PersonIcon,
   PersonOff as PersonOffIcon,
@@ -27,19 +33,23 @@ interface Props {
   open: boolean;
   handleClose: () => void;
   columnId: number;
+  issue?: IssueDto;
 }
 
-const CreateIssueModal = ({ open, handleClose, columnId }: Props) => {
+const IssueModal = ({ open, handleClose, columnId, issue }: Props) => {
   const dispatch = useDispatch<AppDispatch>();
   const { user } = useAuth0(); // Get current authenticated user
 
   // 1. User inputs: Title, Description, and optionally Due Date
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [dueDate, setDueDate] = useState<Dayjs | null>(null);
-
+  const [title, setTitle] = useState(issue?.title || "");
+  const [description, setDescription] = useState(issue?.description || "");
+  const [dueDate, setDueDate] = useState<Dayjs | null>(
+    issue?.dueDate ? dayjs(issue.dueDate) : null,
+  );
   // State for "Assign yourself" feature
-  const [isSelfAssigned, setIsSelfAssigned] = useState(false);
+  const [isSelfAssigned, setIsSelfAssigned] = useState(
+    issue?.assigneeId === user?.sub ? true : false,
+  );
 
   // 2. Calculated properties from existing state
   const columns = useSelector((state: RootState) => state.board.columns);
@@ -47,44 +57,59 @@ const CreateIssueModal = ({ open, handleClose, columnId }: Props) => {
   const nextPosition = currentColumn?.issues?.length || 0; // Position is 0-based index
 
   const handleSave = async () => {
-    // Constructing the payload based on requirements
-    const payload: CreateIssueDto = {
-      // Manual inputs
-      tempId: `temp-${crypto.randomUUID()}`, // Generate unique temp ID
-      title,
-      description,
-      dueDate: dueDate ? dueDate.toISOString() : null,
+    if (issue) {
+      // Use UpdateIssueDto (no creatorName)
+      const updatePayload: UpdateIssueDto = {
+        id: issue.id,
+        title,
+        description,
+        dueDate: dueDate ? dueDate.toISOString() : null,
+        columnId: issue.columnId,
+        assigneeId: isSelfAssigned ? user?.sub : undefined,
+        assigneeName: isSelfAssigned ? user?.name : null,
+      };
+      dispatch(updateIssue(updatePayload));
+    } else {
+      // Use CreateIssueDto
+      const createPayload: CreateIssueDto = {
+        tempId: `temp-${crypto.randomUUID()}`,
+        title,
+        description,
+        dueDate: dueDate ? dueDate.toISOString() : null,
+        columnId,
+        positionInColumn: nextPosition,
+        createdAt: new Date().toISOString(),
+        creatorId: user?.sub || "guest",
+        creatorName: user?.name || null,
+        assigneeId: isSelfAssigned ? user?.sub : undefined,
+        assigneeName: isSelfAssigned ? user?.name || null : undefined,
+      };
+      dispatch(createIssue(createPayload));
 
-      // Auto-calculated system properties
-      columnId,
-      positionInColumn: nextPosition,
-      createdAt: new Date().toISOString(),
-      creatorId: user?.sub || "guest-user", // Use sub from Auth0 or fallback
-      creatorName: user?.name || null,
-
-      // 3. Assignee logic: set to current user ID if button was clicked
-      assigneeId: isSelfAssigned ? user?.sub : undefined,
-      assigneeName: isSelfAssigned ? user?.name || null : undefined,
-    };
+      setTitle("");
+      setDescription("");
+      setDueDate(null);
+      setIsSelfAssigned(false);
+    }
 
     handleClose(); // Close modal immediately for "fast" feel
-    await dispatch(createIssue(payload));
-
-    // Reset state and close modal
-    setTitle("");
-    setDescription("");
-    setDueDate(null);
-    setIsSelfAssigned(false);
-    handleClose();
   };
 
   return (
-    <Dialog open={open} onClose={handleClose} fullWidth maxWidth="xs">
-      <DialogTitle sx={{ fontWeight: 700 }}>Add New Task</DialogTitle>
+    <Dialog
+      open={open}
+      onClose={handleClose}
+      disablePortal={false}
+      fullWidth
+      maxWidth="xs"
+    >
+      <DialogTitle sx={{ fontWeight: 700 }}>
+        {issue ? "Update Issue" : "Add New Issue"}
+      </DialogTitle>
       <DialogContent>
         <Box sx={{ display: "flex", flexDirection: "column", gap: 3, pt: 1 }}>
           <TextField
-            label="Task Title"
+            label="Title"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             fullWidth
@@ -169,11 +194,11 @@ const CreateIssueModal = ({ open, handleClose, columnId }: Props) => {
           disabled={!title.trim()}
           disableElevation
         >
-          Create Task
+          {issue ? "Save" : "Create"}
         </Button>
       </DialogActions>
     </Dialog>
   );
 };
 
-export default CreateIssueModal;
+export default IssueModal;
