@@ -234,7 +234,6 @@ export const boardSlice = createSlice({
       state.filterAssigneeName = null;
     },
     /* Reducer for local state update (Drag and Drop logic) */
-    /* FIX: Corrected optimistic reducer to handle overId and arrayMove */
     moveIssueOptimistic: (state, action: PayloadAction<MoveIssueDto>) => {
       const { issueId, sourceColumnId, destinationColumnId, overId } =
         action.payload;

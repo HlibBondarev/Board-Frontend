@@ -3,8 +3,6 @@ import { useSelector } from "react-redux";
 import { Paper, Typography, Box, IconButton, Button } from "@mui/material";
 import { Add as AddIcon, MoreHoriz as MoreIcon } from "@mui/icons-material";
 import IssueCard from "./IssueCard";
-//import CreateIssueModal from "./modal/CreateIssueModal";
-//import IssueModal from "./modal/IssueModal";
 import IssueModal from "./modal/IssueModal";
 import { type Column as ColumnType } from "../store/board/boardSlice";
 import { type RootState } from "../store/store";
