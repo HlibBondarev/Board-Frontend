@@ -28,13 +28,12 @@ interface ProjectsPageProps {
 
 const ProjectsPage = ({ onSelectBoard }: ProjectsPageProps) => {
   const { user, getAccessTokenSilently, logout } = useAuth0();
-  // Get columns, loading status, errors filterAssigneeName and filterAssigneeId from Redux
+  // Get boards and loading status from Redux
   const { boards, loading } = useSelector((state: RootState) => state.project);
-
   const [open, setOpen] = useState(false);
+
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [role, setRole] = useState<"Admin" | "User" | undefined>(undefined);
   const [userId, setUserId] = useState(user?.sub || "");
 
   const dispatch = useDispatch<AppDispatch>();
@@ -67,14 +66,12 @@ const ProjectsPage = ({ onSelectBoard }: ProjectsPageProps) => {
     const createPayload = {
       title,
       description,
-      role,
       userId,
     };
     dispatch(createBoard(createPayload));
-
+    setOpen(false);
     setTitle("");
     setDescription("");
-    setRole(undefined);
     setUserId("");
   };
 

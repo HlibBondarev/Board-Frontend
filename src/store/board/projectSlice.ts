@@ -30,7 +30,6 @@ export interface BoardDto {
 export interface CreateBoardDto {
   title: string;
   description: string;
-  role: "Admin" | "User" | undefined;
   userId: string;
 }
 
@@ -58,10 +57,7 @@ export const createBoard = createAsyncThunk(
   async (newBoard: CreateBoardDto, { rejectWithValue }) => {
     try {
       // POST request to .NET API (e.g., https://localhost:7283/api/boards)
-      const response = await axiosInstance.post<CreateBoardDto>(
-        "/boards",
-        newBoard,
-      );
+      const response = await axiosInstance.post<BoardDto>("/boards", newBoard);
       return response.data;
     } catch (error) {
       const err = error as AxiosError<{ message?: string }>;
@@ -95,6 +91,15 @@ export const projectSlice = createSlice({
           state.boards = action.payload;
         },
       )
+      /* --- Board Creation --- */
+      .addCase(createBoard.pending, (state) => {
+        state.loading = true;
+      })
+      .addCase(createBoard.fulfilled, (state, action) => {
+        // Add the new board returned by the server to the array
+        state.boards.push(action.payload);
+        state.loading = false;
+      })
       /* --- Universal Matchers for DRY Logic --- */
       // Handle all pending board actions
       .addMatcher(
