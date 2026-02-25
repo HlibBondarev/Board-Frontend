@@ -8,7 +8,9 @@ import {
   CircularProgress,
   Chip,
   Fade,
+  IconButton,
 } from "@mui/material";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import {
   Close as CloseIcon,
   FilterList as FilterIcon,
@@ -31,6 +33,7 @@ import {
   clearFilter,
   moveIssue,
   moveIssueOptimistic,
+  resetBoard,
 } from "../store/board/boardSlice";
 import { setAuthToken } from "../api/axiosInstance";
 import { type RootState, type AppDispatch } from "../store/store";
@@ -39,14 +42,20 @@ import { type IssueDto } from "../store/board/boardSlice";
 import IssueCard from "../components/IssueCard";
 import GlobalErrorSnackbar from "../components/GlobalErrorSnackbar";
 
-const BoardPage = () => {
+interface BoardPageProps {
+  isDemo?: boolean;
+  boardId?: number | string | null;
+  onBack: () => void;
+}
+
+const BoardPage = ({ boardId, onBack }: BoardPageProps) => {
   const dispatch = useDispatch<AppDispatch>();
   const { getAccessTokenSilently } = useAuth0();
 
   /* State to keep track of the currently dragged issue */
   const [activeIssue, setActiveIssue] = useState<IssueDto | null>(null);
 
-  // Get columns, loading status, errors ilterAssigneeName and filterAssigneeId from Redux
+  // Get columns, loading status, errors filterAssigneeName and filterAssigneeId from Redux
   const { columns, loading, error, filterAssigneeName, filterAssigneeId } =
     useSelector((state: RootState) => state.board);
 
@@ -68,7 +77,7 @@ const BoardPage = () => {
         const token = await getAccessTokenSilently();
         if (isMounted) {
           setAuthToken(token);
-          dispatch(fetchBoard());
+          dispatch(fetchBoard({ Id: Number(boardId) }));
         }
       } catch (e) {
         if (isMounted) {
@@ -80,8 +89,9 @@ const BoardPage = () => {
 
     return () => {
       isMounted = false;
+      dispatch(resetBoard());
     };
-  }, [dispatch, getAccessTokenSilently]);
+  }, [dispatch, getAccessTokenSilently, boardId]);
 
   // This effect handles the state rollback specifically when an error occurs
   useEffect(() => {}, [error]);
@@ -187,9 +197,21 @@ const BoardPage = () => {
         }}
       >
         <Container maxWidth={false}>
-          <Typography variant="h4" fontWeight="700" sx={{ mb: 4, px: 1 }}>
-            Dashboard
-          </Typography>
+          <Box
+            sx={{ display: "flex", alignItems: "center", gap: 1, mb: 4, mt: 1 }}
+          >
+            <IconButton
+              onClick={onBack}
+              sx={{ color: "text.primary" }}
+              aria-label="back to projects"
+            >
+              <ArrowBackIcon />
+            </IconButton>
+
+            <Typography variant="h4" fontWeight="700" sx={{ px: 1 }}>
+              Dashboard
+            </Typography>
+          </Box>
           <Fade in={Boolean(filterAssigneeName)}>
             <Chip
               icon={<FilterIcon />}

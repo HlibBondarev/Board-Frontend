@@ -28,19 +28,25 @@ interface DeleteIssueResponse {
   issues: IssueDto[]; // Updated list of issues after deletion
 }
 
-export interface Column {
+export interface BoardWithIssuesDto {
+  id: number;
+  title: string;
+  description: string;
+  createdAt: number;
+  columns: ColumnDto[];
+}
+
+export interface ColumnDto {
   id: number;
   name: string;
   description: string;
   position: number;
-  userId: string;
-  UserDisplayName: string;
   issues: IssueDto[];
 }
 
 interface BoardState {
-  columns: Column[];
-  previousColumns: Column[] | null; // Snapshot for rollback
+  columns: ColumnDto[];
+  previousColumns: ColumnDto[] | null; // Snapshot for rollback
   loading: boolean;
   error: string | null; // Added to track global board errors
   filterAssigneeId: string | null; // store ID for uniqueness,
@@ -91,10 +97,13 @@ export interface MoveIssueDto {
 // Async Thunk to load data
 export const fetchBoard = createAsyncThunk(
   "board/fetchBoard",
-  async (_, { rejectWithValue }) => {
+  //async (_, { rejectWithValue }) => {
+  async (payload: { Id: number }, { rejectWithValue }) => {
     try {
-      // The endpoint must correspond to a controller in .NET (e.g., /column)
-      const response = await axiosInstance.get<Column[]>("/columns");
+      // The endpoint must correspond to a controller in .NET (e.g., /boards/{id})
+      const response = await axiosInstance.get<BoardWithIssuesDto>(
+        `/boards/${payload.Id}`, // Adjusted endpoint to fetch a specific board by ID
+      );
       return response.data;
     } catch (error) {
       // Handle the error using AxiosError type instead of 'any'
@@ -207,11 +216,18 @@ export const boardSlice = createSlice({
   name: "board",
   initialState: initialState,
   reducers: {
-    // Reducer for manual state updates (e.g., after Drag-and-Drop)
-    setColumns: (state, action: PayloadAction<Column[]>) => {
-      state.columns = action.payload;
+    // // Reducer for manual state updates (e.g., after Drag-and-Drop)
+    // setColumns: (state, action: PayloadAction<Column[]>) => {
+    //   state.columns = action.payload;
+    // },
+    //Reducer to clear errors (can be dispatched on new interactions or after showing a Snackbar)
+    resetBoard: (state) => {
+      state.columns = [];
+      state.loading = false;
+      state.error = null;
+      state.filterAssigneeName = null;
+      state.filterAssigneeId = null;
     },
-    // Reducer to clear errors (can be dispatched on new interactions or after showing a Snackbar)
     clearError: (state) => {
       state.error = null;
     },
@@ -294,9 +310,9 @@ export const boardSlice = createSlice({
       })
       .addCase(
         fetchBoard.fulfilled,
-        (state, action: PayloadAction<Column[]>) => {
+        (state, action: PayloadAction<BoardWithIssuesDto>) => {
           state.loading = false;
-          state.columns = action.payload;
+          state.columns = action.payload.columns;
         },
       )
       /* --- Issue Creation (Optimistic) --- */
@@ -408,11 +424,12 @@ export const boardSlice = createSlice({
 });
 
 export const {
-  setColumns,
+  //setColumns,
   clearError,
   setFilterAssignee,
   clearFilter,
   moveIssueOptimistic,
+  resetBoard,
 } = boardSlice.actions;
 
 export default boardSlice.reducer;

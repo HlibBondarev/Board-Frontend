@@ -4,7 +4,7 @@ import { Paper, Typography, Box, IconButton, Button } from "@mui/material";
 import { Add as AddIcon, MoreHoriz as MoreIcon } from "@mui/icons-material";
 import IssueCard from "./IssueCard";
 import IssueModal from "./modal/IssueModal";
-import { type Column as ColumnType } from "../store/board/boardSlice";
+import { type ColumnDto as ColumnType } from "../store/board/boardSlice";
 import { type RootState } from "../store/store";
 /* 1. Import @dnd-kit core and sortable tools */
 import { useDroppable } from "@dnd-kit/core";
