@@ -3,6 +3,8 @@ import {
   createAsyncThunk,
   type PayloadAction,
   current,
+  type UnknownAction,
+  type SerializedError,
 } from "@reduxjs/toolkit";
 import axiosInstance from "../../api/axiosInstance";
 import { AxiosError } from "axios";
@@ -62,6 +64,7 @@ const initialState: BoardState = {
   filterAssigneeName: null,
 };
 
+// Add CreateIssueDto interface for issue creation payload
 export interface CreateIssueDto {
   tempId: string; // Add this for tracking during optimistic updates
   title: string;
@@ -76,6 +79,7 @@ export interface CreateIssueDto {
   assigneeName?: string | null;
 }
 
+// Add UpdateIssueDto interface
 export interface UpdateIssueDto {
   id: number | string;
   title: string;
@@ -84,6 +88,18 @@ export interface UpdateIssueDto {
   columnId: number;
   assigneeId?: string | undefined;
   assigneeName?: string | null;
+}
+
+// Add CreateColumnDto interface for column creation payload
+export interface CreateColumnDto {
+  name: string;
+  description: string;
+}
+
+// Define an interface for the input data
+interface AddColumnArgs {
+  boardId: number;
+  newColumn: CreateColumnDto;
 }
 
 // Add MoveIssueDto interface
@@ -208,6 +224,25 @@ export const moveIssue = createAsyncThunk(
     } catch (error) {
       const err = error as AxiosError<{ message?: string }>;
       return rejectWithValue(err.response?.data?.message || "Sync failed");
+    }
+  },
+);
+
+export const addColumn = createAsyncThunk(
+  "board/createColumn",
+  // The first argument is our data object, the second is the thunkAPI (destructured)
+  async ({ boardId, newColumn }: AddColumnArgs, { rejectWithValue }) => {
+    try {
+      const response = await axiosInstance.post<ColumnDto>(
+        `/boards/${boardId}/columns`,
+        newColumn,
+      );
+      return response.data;
+    } catch (error) {
+      const err = error as AxiosError<{ message?: string }>;
+      return rejectWithValue(
+        err.response?.data?.message || "Error: Creation Column failed",
+      );
     }
   },
 );
@@ -386,7 +421,13 @@ export const boardSlice = createSlice({
           column.issues = issues;
         }
       })
-
+      /* --- Column Creation --- */
+      // .addCase(addColumn.pending, (state) => {
+      //   state.loading = true;
+      // })
+      .addCase(addColumn.fulfilled, (state, action) => {
+        state.columns.push({ ...action.payload, issues: [] });
+      })
       /* --- Universal Matchers for DRY Logic --- */
       // Handle all pending board actions
       .addMatcher(
@@ -403,28 +444,36 @@ export const boardSlice = createSlice({
           action.type.endsWith("/fulfilled"),
         (state) => {
           state.previousColumns = null; // Clear snapshot on success
+          state.loading = false; // Global loading reset on any successful operation
         },
       )
       // Handle all rejected board actions (Global Rollback)
       .addMatcher(
-        (action) =>
-          action.type.startsWith("board/") && action.type.endsWith("/rejected"),
-        (state, action: PayloadAction<string>) => {
+        (action: UnknownAction): action is UnknownAction =>
+          typeof action.type === "string" &&
+          action.type.startsWith("board/") &&
+          action.type.endsWith("/rejected"),
+        (state, action) => {
           state.loading = false;
-          // Automatic rollback to the state before the failed operation
+
           if (state.previousColumns) {
             state.columns = state.previousColumns;
             state.previousColumns = null;
           }
-          // Set error message from payload or generic fallback
-          state.error = action.payload || "Operation failed";
+
+          // Use SerializedError instead of any
+          const serializedError = action.error as SerializedError;
+
+          state.error =
+            (action.payload as string) ||
+            serializedError?.message ||
+            "Operation failed";
         },
       );
   },
 });
 
 export const {
-  //setColumns,
   clearError,
   setFilterAssignee,
   clearFilter,

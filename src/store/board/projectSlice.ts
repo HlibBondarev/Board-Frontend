@@ -92,9 +92,9 @@ export const projectSlice = createSlice({
         },
       )
       /* --- Board Creation --- */
-      .addCase(createBoard.pending, (state) => {
-        state.loading = true;
-      })
+      // .addCase(createBoard.pending, (state) => {
+      //   state.loading = true;
+      // })
       .addCase(createBoard.fulfilled, (state, action) => {
         // Add the new board returned by the server to the array
         state.boards.push(action.payload);
