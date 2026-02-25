@@ -9,8 +9,12 @@ import {
   Chip,
   Fade,
   IconButton,
+  Button,
+  TextField,
+  Paper,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import AddIcon from "@mui/icons-material/Add";
 import {
   Close as CloseIcon,
   FilterList as FilterIcon,
@@ -34,6 +38,7 @@ import {
   moveIssue,
   moveIssueOptimistic,
   resetBoard,
+  addColumn,
 } from "../store/board/boardSlice";
 import { setAuthToken } from "../api/axiosInstance";
 import { type RootState, type AppDispatch } from "../store/store";
@@ -51,6 +56,11 @@ interface BoardPageProps {
 const BoardPage = ({ boardId, onBack }: BoardPageProps) => {
   const dispatch = useDispatch<AppDispatch>();
   const { getAccessTokenSilently } = useAuth0();
+
+  /* Local state for adding a new column */
+  const [isAddingColumn, setIsAddingColumn] = useState(false);
+  const [newColumnName, setNewColumnName] = useState("");
+  const [newColumnDescription, setNewColumnDescription] = useState("");
 
   /* State to keep track of the currently dragged issue */
   const [activeIssue, setActiveIssue] = useState<IssueDto | null>(null);
@@ -97,6 +107,27 @@ const BoardPage = ({ boardId, onBack }: BoardPageProps) => {
   useEffect(() => {}, [error]);
 
   const isFilterActive = Boolean(filterAssigneeId);
+
+  const handleCancel = () => {
+    setIsAddingColumn(false);
+    setNewColumnName("");
+    setNewColumnDescription("");
+  };
+
+  const handleAddColumn = () => {
+    if (newColumnName.trim() && boardId) {
+      dispatch(
+        addColumn({
+          boardId: Number(boardId),
+          newColumn: {
+            name: newColumnName.trim(),
+            description: newColumnDescription.trim(),
+          },
+        }),
+      );
+      handleCancel(); // Виглядає чисто і зрозуміло
+    }
+  };
 
   const handleDragStart = (event: DragStartEvent) => {
     if (isFilterActive) return; // Block dragging when filter is active to prevent index mismatch
@@ -188,7 +219,8 @@ const BoardPage = ({ boardId, onBack }: BoardPageProps) => {
     >
       <Box
         sx={{
-          backgroundColor: "#ebedef",
+          /* Trello-like blue background */
+          backgroundColor: "#0079bf",
           minHeight: "100vh",
           pt: 4,
           pb: 4,
@@ -202,7 +234,7 @@ const BoardPage = ({ boardId, onBack }: BoardPageProps) => {
           >
             <IconButton
               onClick={onBack}
-              sx={{ color: "text.primary" }}
+              sx={{ color: "white" }} // White icon for dark background
               aria-label="back to projects"
             >
               <ArrowBackIcon />
@@ -227,15 +259,120 @@ const BoardPage = ({ boardId, onBack }: BoardPageProps) => {
           <Box
             sx={{
               display: "flex",
-              alignItems: "flex-start",
+              alignItems: "flex-start", // Keeps everything at the top
               overflowX: "auto",
-              pb: 2,
-              gap: 2,
+              pb: 3,
+              px: 3,
+              gap: 3,
+              width: "100%",
+              /* Custom scrollbar for dark background */
+              "&::-webkit-scrollbar": { height: 10 },
+              "&::-webkit-scrollbar-track": {
+                backgroundColor: "rgba(255,255,255,0.1)",
+                borderRadius: 5,
+              },
+              "&::-webkit-scrollbar-thumb": {
+                backgroundColor: "rgba(255,255,255,0.3)",
+                borderRadius: 5,
+              },
             }}
           >
+            {/* Existing Columns */}
             {columns.map((col) => (
-              <Column key={col.id} column={col} />
+              <Box key={col.id} sx={{ width: 300, flexShrink: 0 }}>
+                <Column column={col} />
+              </Box>
             ))}
+
+            {/* Add Column Section - Now aligned */}
+            <Box
+              sx={{
+                width: 300,
+                flexShrink: 0,
+                /* mt: 1 (8px) usually aligns the button top edge with the column top edge */
+                mt: 1,
+                mr: 3,
+              }}
+            >
+              {!isAddingColumn ? (
+                <Button
+                  fullWidth
+                  variant="contained"
+                  startIcon={<AddIcon />}
+                  onClick={() => setIsAddingColumn(true)}
+                  sx={{
+                    justifyContent: "flex-start",
+                    /* Slightly transparent white button to blend with the background */
+                    backgroundColor: "rgba(255, 255, 255, 0.2)",
+                    color: "text.primary",
+                    textTransform: "none",
+                    fontWeight: 600,
+                    borderRadius: 2, // Match your Column's border radius
+                    py: 1.5, // Increase padding to match the header's height
+                    boxShadow: "0 1px 3px rgba(0,0,0,0.12)",
+                    "&:hover": { backgroundColor: "rgba(255, 255, 255, 0.3)" },
+                  }}
+                >
+                  Add another column
+                </Button>
+              ) : (
+                <Paper
+                  sx={{
+                    p: 1.5,
+                    backgroundColor: "#f1f2f4",
+                    borderRadius: 2,
+                    boxShadow: "0 4px 8px rgba(0,0,0,0.2)",
+                  }}
+                >
+                  {/* Name Input */}
+                  <TextField
+                    autoFocus
+                    fullWidth
+                    size="small"
+                    placeholder="Enter column name..."
+                    value={newColumnName}
+                    onChange={(e) => setNewColumnName(e.target.value)}
+                    sx={{
+                      backgroundColor: "white",
+                      borderRadius: 1,
+                      mb: 1,
+                      "& .MuiOutlinedInput-root": {
+                        fontSize: "0.9rem",
+                        fontWeight: 600,
+                      },
+                    }}
+                  />
+                  {/* Description Input (Added back) */}
+                  <TextField
+                    fullWidth
+                    multiline
+                    rows={2}
+                    size="small"
+                    placeholder="Enter description (optional)..."
+                    value={newColumnDescription}
+                    onChange={(e) => setNewColumnDescription(e.target.value)}
+                    sx={{
+                      backgroundColor: "white",
+                      borderRadius: 1,
+                      mb: 1.5,
+                      "& .MuiOutlinedInput-root": { fontSize: "0.85rem" },
+                    }}
+                  />
+                  <Box sx={{ display: "flex", gap: 1 }}>
+                    <Button
+                      variant="contained"
+                      size="small"
+                      onClick={handleAddColumn}
+                    >
+                      Add column
+                    </Button>
+                    <IconButton size="small" onClick={handleCancel}>
+                      <CloseIcon />
+                    </IconButton>
+                  </Box>
+                </Paper>
+              )}
+            </Box>
           </Box>
         </Container>
       </Box>
