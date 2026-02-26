@@ -25,7 +25,7 @@ export interface IssueDto {
   isOptimistic?: boolean; // Flag to identify issues created or updated during optimistic updates
 }
 
-interface DeleteIssueResponse {
+interface IssueDeleteResponse {
   columnId: number;
   issues: IssueDto[]; // Updated list of issues after deletion
 }
@@ -35,6 +35,7 @@ export interface BoardWithIssuesDto {
   title: string;
   description: string;
   createdAt: number;
+  userRole: "Admin" | "User";
   columns: ColumnDto[];
 }
 
@@ -48,6 +49,8 @@ export interface ColumnDto {
 
 interface BoardState {
   columns: ColumnDto[];
+  title: string;
+  userRole: "Admin" | "User" | null; // Track current user's role in this board
   previousColumns: ColumnDto[] | null; // Snapshot for rollback
   loading: boolean;
   error: string | null; // Added to track global board errors
@@ -57,6 +60,8 @@ interface BoardState {
 
 const initialState: BoardState = {
   columns: [],
+  title: "",
+  userRole: null,
   previousColumns: null,
   loading: false,
   error: null,
@@ -65,7 +70,7 @@ const initialState: BoardState = {
 };
 
 // Add CreateIssueDto interface for issue creation payload
-export interface CreateIssueDto {
+export interface IssueCreateDto {
   tempId: string; // Add this for tracking during optimistic updates
   title: string;
   description: string;
@@ -80,7 +85,7 @@ export interface CreateIssueDto {
 }
 
 // Add UpdateIssueDto interface
-export interface UpdateIssueDto {
+export interface IssueUpdateDto {
   id: number | string;
   title: string;
   description: string;
@@ -91,15 +96,26 @@ export interface UpdateIssueDto {
 }
 
 // Add CreateColumnDto interface for column creation payload
-export interface CreateColumnDto {
+export interface ColumnCreateUpdateDto {
+  name: string;
+  description: string;
+}
+
+export interface ColumnUpdateResponseDto {
+  id: number;
   name: string;
   description: string;
 }
 
 // Define an interface for the input data
-interface AddColumnArgs {
+interface ColumnCreateArgs {
   boardId: number;
-  newColumn: CreateColumnDto;
+  newColumn: ColumnCreateUpdateDto;
+}
+
+interface ColumnUpdateArgs {
+  id: number;
+  updateColumn: ColumnCreateUpdateDto;
 }
 
 // Add MoveIssueDto interface
@@ -113,12 +129,14 @@ export interface MoveIssueDto {
 // Async Thunk to load data
 export const fetchBoard = createAsyncThunk(
   "board/fetchBoard",
-  //async (_, { rejectWithValue }) => {
-  async (payload: { Id: number }, { rejectWithValue }) => {
+  async (payload: { Id: number; UserId: string }, { rejectWithValue }) => {
     try {
       // The endpoint must correspond to a controller in .NET (e.g., /boards/{id})
       const response = await axiosInstance.get<BoardWithIssuesDto>(
         `/boards/${payload.Id}`, // Adjusted endpoint to fetch a specific board by ID
+        {
+          params: { UserId: payload.UserId }, // Pass as query parameter
+        },
       );
       return response.data;
     } catch (error) {
@@ -134,7 +152,7 @@ export const fetchBoard = createAsyncThunk(
 // Async Thunk to create a new issue
 export const createIssue = createAsyncThunk(
   "board/createIssue",
-  async (newIssue: CreateIssueDto, { rejectWithValue }) => {
+  async (newIssue: IssueCreateDto, { rejectWithValue }) => {
     try {
       // POST request to .NET API (e.g., https://localhost:7283/api/issues)
       const response = await axiosInstance.post<IssueDto>("/issues", newIssue);
@@ -151,7 +169,7 @@ export const createIssue = createAsyncThunk(
 // Async Thunk to update an existing issue
 export const updateIssue = createAsyncThunk(
   "board/updateIssue",
-  async (updatedIssue: UpdateIssueDto, { rejectWithValue }) => {
+  async (updatedIssue: IssueUpdateDto, { rejectWithValue }) => {
     try {
       // PUT request to .NET API (e.g., https://localhost:7283/api/issues)
       const response = await axiosInstance.put<IssueDto>(
@@ -176,15 +194,15 @@ export const deleteIssue = createAsyncThunk(
     { rejectWithValue },
   ) => {
     try {
-      // DELETE request to .NET API (e.g., https://localhost:7283/api/issues/)
-      const response = await axiosInstance.delete<DeleteIssueResponse>(
+      // DELETE request to .NET API (e.g., https://localhost:7283/api/issues/{id})
+      const response = await axiosInstance.delete<IssueDeleteResponse>(
         `/issues/${payload.id}`,
       );
       return response.data;
     } catch (error) {
       const err = error as AxiosError<{ message?: string }>;
       return rejectWithValue(
-        err.response?.data?.message || "Error: Delete failed",
+        err.response?.data?.message || "Error: Delete Issue failed",
       );
     }
   },
@@ -231,7 +249,7 @@ export const moveIssue = createAsyncThunk(
 export const addColumn = createAsyncThunk(
   "board/createColumn",
   // The first argument is our data object, the second is the thunkAPI (destructured)
-  async ({ boardId, newColumn }: AddColumnArgs, { rejectWithValue }) => {
+  async ({ boardId, newColumn }: ColumnCreateArgs, { rejectWithValue }) => {
     try {
       const response = await axiosInstance.post<ColumnDto>(
         `/boards/${boardId}/columns`,
@@ -247,6 +265,45 @@ export const addColumn = createAsyncThunk(
   },
 );
 
+// 1. Thunk to update Name and Description
+export const updateColumn = createAsyncThunk(
+  "board/updateColumn",
+  async ({ id, updateColumn }: ColumnUpdateArgs, { rejectWithValue }) => {
+    try {
+      const response = await axiosInstance.put<ColumnUpdateResponseDto>(
+        `/columns/${id}`,
+        updateColumn,
+      );
+      return response.data; // Expected: updated Column object
+    } catch (error) {
+      const err = error as AxiosError<{ message?: string }>;
+      return rejectWithValue(
+        err.response?.data?.message || "Error: Update Column failed",
+      );
+    }
+  },
+);
+
+// 2. Thunk to delete column
+export const deleteColumn = createAsyncThunk(
+  "board/deleteColumn",
+  // async (id: number) => {
+  async (deleteData: { id: number; userId: string }, { rejectWithValue }) => {
+    try {
+      // DELETE request to .NET API (e.g., https://localhost:7283/api/columns/{id})
+      const response = await axiosInstance.delete<ColumnDto[]>(
+        `/columns/${deleteData.id}?userId=${deleteData.userId}`,
+      );
+      return response.data;
+    } catch (error) {
+      const err = error as AxiosError<{ message?: string }>;
+      return rejectWithValue(
+        err.response?.data?.message || "Error: Delete Column failed",
+      );
+    }
+  },
+);
+
 export const boardSlice = createSlice({
   name: "board",
   initialState: initialState,
@@ -255,6 +312,9 @@ export const boardSlice = createSlice({
     // setColumns: (state, action: PayloadAction<Column[]>) => {
     //   state.columns = action.payload;
     // },
+    setUserRole: (state, action: PayloadAction<"Admin" | "User">) => {
+      state.userRole = action.payload;
+    },
     //Reducer to clear errors (can be dispatched on new interactions or after showing a Snackbar)
     resetBoard: (state) => {
       state.columns = [];
@@ -348,6 +408,8 @@ export const boardSlice = createSlice({
         (state, action: PayloadAction<BoardWithIssuesDto>) => {
           state.loading = false;
           state.columns = action.payload.columns;
+          state.userRole = action.payload.userRole;
+          state.title = action.payload.title;
         },
       )
       /* --- Issue Creation (Optimistic) --- */
@@ -421,12 +483,24 @@ export const boardSlice = createSlice({
           column.issues = issues;
         }
       })
-      /* --- Column Creation --- */
-      // .addCase(addColumn.pending, (state) => {
-      //   state.loading = true;
+      /* --- Create Column --- */
       // })
       .addCase(addColumn.fulfilled, (state, action) => {
         state.columns.push({ ...action.payload, issues: [] });
+      })
+      /* --- Update Column --- */
+      .addCase(updateColumn.fulfilled, (state, action) => {
+        const index = state.columns.findIndex(
+          (c) => c.id === action.payload.id,
+        );
+        if (index !== -1) {
+          state.columns[index].name = action.payload.name;
+          state.columns[index].description = action.payload.description;
+        }
+      })
+      /* --- Delete Column --- */
+      .addCase(deleteColumn.fulfilled, (state, action) => {
+        state.columns = action.payload;
       })
       /* --- Universal Matchers for DRY Logic --- */
       // Handle all pending board actions
@@ -450,20 +524,15 @@ export const boardSlice = createSlice({
       // Handle all rejected board actions (Global Rollback)
       .addMatcher(
         (action: UnknownAction): action is UnknownAction =>
-          typeof action.type === "string" &&
-          action.type.startsWith("board/") &&
-          action.type.endsWith("/rejected"),
+          action.type.startsWith("board/") && action.type.endsWith("/rejected"),
         (state, action) => {
           state.loading = false;
-
           if (state.previousColumns) {
             state.columns = state.previousColumns;
             state.previousColumns = null;
           }
-
           // Use SerializedError instead of any
           const serializedError = action.error as SerializedError;
-
           state.error =
             (action.payload as string) ||
             serializedError?.message ||
@@ -479,6 +548,7 @@ export const {
   clearFilter,
   moveIssueOptimistic,
   resetBoard,
+  setUserRole,
 } = boardSlice.actions;
 
 export default boardSlice.reducer;
