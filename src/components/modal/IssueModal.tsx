@@ -21,8 +21,8 @@ import {
   createIssue,
   updateIssue,
   type IssueDto,
-  type CreateIssueDto,
-  type UpdateIssueDto,
+  type IssueCreateDto,
+  type IssueUpdateDto,
 } from "../../store/board/boardSlice";
 import {
   PersonAddAlt as PersonIcon,
@@ -59,7 +59,7 @@ const IssueModal = ({ open, handleClose, columnId, issue }: Props) => {
   const handleSave = async () => {
     if (issue) {
       // Use UpdateIssueDto (no creatorName)
-      const updatePayload: UpdateIssueDto = {
+      const updatePayload: IssueUpdateDto = {
         id: issue.id,
         title,
         description,
@@ -71,7 +71,7 @@ const IssueModal = ({ open, handleClose, columnId, issue }: Props) => {
       dispatch(updateIssue(updatePayload));
     } else {
       // Use CreateIssueDto
-      const createPayload: CreateIssueDto = {
+      const createPayload: IssueCreateDto = {
         tempId: `temp-${crypto.randomUUID()}`,
         title,
         description,

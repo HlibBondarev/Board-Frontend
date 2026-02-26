@@ -39,11 +39,13 @@ import {
   moveIssueOptimistic,
   resetBoard,
   addColumn,
+  updateColumn,
+  deleteColumn,
+  type IssueDto,
 } from "../store/board/boardSlice";
 import { setAuthToken } from "../api/axiosInstance";
 import { type RootState, type AppDispatch } from "../store/store";
 import Column from "../components/Column";
-import { type IssueDto } from "../store/board/boardSlice";
 import IssueCard from "../components/IssueCard";
 import GlobalErrorSnackbar from "../components/GlobalErrorSnackbar";
 
@@ -55,7 +57,7 @@ interface BoardPageProps {
 
 const BoardPage = ({ boardId, onBack }: BoardPageProps) => {
   const dispatch = useDispatch<AppDispatch>();
-  const { getAccessTokenSilently } = useAuth0();
+  const { user, getAccessTokenSilently } = useAuth0();
 
   /* Local state for adding a new column */
   const [isAddingColumn, setIsAddingColumn] = useState(false);
@@ -78,6 +80,27 @@ const BoardPage = ({ boardId, onBack }: BoardPageProps) => {
     }),
   );
 
+  const handleUpdateColumn = (
+    columnId: number,
+    name: string,
+    description: string,
+  ) => {
+    // Dispatching thunk with updated data (Name + Description)
+    dispatch(
+      updateColumn({ id: columnId, updateColumn: { name, description } }),
+    );
+  };
+
+  const handleDeleteColumn = (columnId: number) => {
+    // Deleting via API
+    dispatch(
+      deleteColumn({
+        id: columnId,
+        userId: user?.sub ?? "",
+      }),
+    );
+  };
+
   // effect for initial board data fetching
   useEffect(() => {
     let isMounted = true;
@@ -87,7 +110,9 @@ const BoardPage = ({ boardId, onBack }: BoardPageProps) => {
         const token = await getAccessTokenSilently();
         if (isMounted) {
           setAuthToken(token);
-          dispatch(fetchBoard({ Id: Number(boardId) }));
+          dispatch(
+            fetchBoard({ Id: Number(boardId), UserId: user?.sub || "" }),
+          );
         }
       } catch (e) {
         if (isMounted) {
@@ -101,7 +126,7 @@ const BoardPage = ({ boardId, onBack }: BoardPageProps) => {
       isMounted = false;
       dispatch(resetBoard());
     };
-  }, [dispatch, getAccessTokenSilently, boardId]);
+  }, [dispatch, getAccessTokenSilently, boardId, user?.sub]);
 
   // This effect handles the state rollback specifically when an error occurs
   useEffect(() => {}, [error]);
@@ -263,7 +288,7 @@ const BoardPage = ({ boardId, onBack }: BoardPageProps) => {
               overflowX: "auto",
               pb: 3,
               px: 3,
-              gap: 3,
+              gap: 2,
               width: "100%",
               /* Custom scrollbar for dark background */
               "&::-webkit-scrollbar": { height: 10 },
@@ -279,9 +304,14 @@ const BoardPage = ({ boardId, onBack }: BoardPageProps) => {
           >
             {/* Existing Columns */}
             {columns.map((col) => (
-              <Box key={col.id} sx={{ width: 300, flexShrink: 0 }}>
-                <Column column={col} />
-              </Box>
+              <Column
+                key={col.id}
+                column={col}
+                onUpdateColumn={(id, { name, description }) =>
+                  handleUpdateColumn(id as number, name, description)
+                }
+                onDeleteColumn={(id) => handleDeleteColumn(id as number)}
+              />
             ))}
 
             {/* Add Column Section - Now aligned */}
@@ -289,9 +319,7 @@ const BoardPage = ({ boardId, onBack }: BoardPageProps) => {
               sx={{
                 width: 300,
                 flexShrink: 0,
-                /* mt: 1 (8px) usually aligns the button top edge with the column top edge */
-                mt: 1,
-                mr: 3,
+                mt: 0,
               }}
             >
               {!isAddingColumn ? (
@@ -304,7 +332,7 @@ const BoardPage = ({ boardId, onBack }: BoardPageProps) => {
                     justifyContent: "flex-start",
                     /* Slightly transparent white button to blend with the background */
                     backgroundColor: "rgba(255, 255, 255, 0.2)",
-                    color: "text.primary",
+                    color: "white",
                     textTransform: "none",
                     fontWeight: 600,
                     borderRadius: 2, // Match your Column's border radius
