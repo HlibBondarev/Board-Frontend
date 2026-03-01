@@ -7,17 +7,7 @@ import {
 import axiosInstance from "../../api/axiosInstance";
 import { AxiosError } from "axios";
 
-interface ProjectsState {
-  boards: BoardDto[];
-  loading: boolean;
-  error: string | null;
-}
-
-const initialState: ProjectsState = {
-  boards: [],
-  loading: false,
-  error: null,
-};
+// --- INTERFACES ---
 
 export interface BoardDto {
   id: number;
@@ -33,6 +23,25 @@ export interface CreateBoardDto {
   userId: string;
 }
 
+// Interface for adding a user to a specific board
+export interface AddUserToBoardDto {
+  boardId: number;
+  email: string;
+  role: "Admin" | "User";
+}
+
+interface ProjectsState {
+  boards: BoardDto[];
+  loading: boolean;
+  error: string | null;
+}
+
+const initialState: ProjectsState = {
+  boards: [],
+  loading: false,
+  error: null,
+};
+
 export const fetchBoardsByUser = createAsyncThunk(
   "project/fetchBoardsByUser",
   async (payload: { userId: string | undefined }, { rejectWithValue }) => {
@@ -43,10 +52,10 @@ export const fetchBoardsByUser = createAsyncThunk(
       });
       return response.data;
     } catch (error) {
-      // Handle the error using AxiosError type instead of 'any'
-      const err = error as AxiosError<{ message?: string }>;
+      const err = error as AxiosError<{ detail?: string }>;
       return rejectWithValue(
-        err.response?.data?.message || "Failed to load boards data for user",
+        err.response?.data?.detail ||
+          "Error: Failed to load boards data for user",
       );
     }
   },
@@ -60,9 +69,34 @@ export const createBoard = createAsyncThunk(
       const response = await axiosInstance.post<BoardDto>("/boards", newBoard);
       return response.data;
     } catch (error) {
-      const err = error as AxiosError<{ message?: string }>;
+      const err = error as AxiosError<{ detail?: string }>;
       return rejectWithValue(
-        err.response?.data?.message || "Error: Creation Board failed",
+        err.response?.data?.detail || "Error: Board Creation failed",
+      );
+    }
+  },
+);
+
+/* Action to add a user to a project/board
+ * Sends a POST request to link a user by email to a specific board with a role
+ */
+export const addUserToBoard = createAsyncThunk(
+  "project/addUserToBoard",
+  async (payload: AddUserToBoardDto, { rejectWithValue }) => {
+    try {
+      // Adjusted endpoint: /api/boards/{id}/members (check your backend route)
+      const response = await axiosInstance.post(
+        `/boards/${payload.boardId}/members`,
+        {
+          email: payload.email,
+          role: payload.role,
+        },
+      );
+      return response.data;
+    } catch (error) {
+      const err = error as AxiosError<{ detail?: string }>;
+      return rejectWithValue(
+        err.response?.data?.detail || "Error: Failed to add user to project",
       );
     }
   },
@@ -92,13 +126,16 @@ export const projectSlice = createSlice({
         },
       )
       /* --- Board Creation --- */
-      // .addCase(createBoard.pending, (state) => {
-      //   state.loading = true;
-      // })
       .addCase(createBoard.fulfilled, (state, action) => {
         // Add the new board returned by the server to the array
         state.boards.push(action.payload);
         state.loading = false;
+      })
+      /* --- Add User to Board --- */
+      .addCase(addUserToBoard.fulfilled, (state) => {
+        state.loading = false;
+        // Logic: You can update the local state if your BoardDto
+        // contains a list of members, otherwise just stop loading.
       })
       /* --- Universal Matchers for DRY Logic --- */
       // Handle all pending board actions
