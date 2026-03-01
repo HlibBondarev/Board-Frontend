@@ -84,7 +84,7 @@ export const addUserToBoard = createAsyncThunk(
   "project/addUserToBoard",
   async (payload: AddUserToBoardDto, { rejectWithValue }) => {
     try {
-      // Adjusted endpoint: /api/boards/{id}/members (check your backend route)
+      // Adjusted endpoint: /api/boards/{id}/members
       const response = await axiosInstance.post(
         `/boards/${payload.boardId}/members`,
         {
@@ -96,7 +96,35 @@ export const addUserToBoard = createAsyncThunk(
     } catch (error) {
       const err = error as AxiosError<{ detail?: string }>;
       return rejectWithValue(
-        err.response?.data?.detail || "Error: Failed to add user to project",
+        err.response?.data?.detail || "Error: Failed to add User to project",
+      );
+    }
+  },
+);
+
+/* Action to remove a user from a project/board
+ * Sends a DELETE request to removed a user by email from a specific board
+ */
+export const removeUserFromBoard = createAsyncThunk(
+  "project/removeUserFromBoard",
+  async (
+    { boardId, email }: { boardId: number; email: string },
+    { rejectWithValue },
+  ) => {
+    try {
+      // Adjusted endpoint: /api/boards/{id}/members
+      const response = await axiosInstance.delete(
+        `/boards/${boardId}/members`,
+        {
+          data: { email },
+        },
+      );
+      return response.data;
+    } catch (error) {
+      const err = error as AxiosError<{ detail?: string }>;
+      return rejectWithValue(
+        err.response?.data?.detail ||
+          "Error: Failed to remove User from project",
       );
     }
   },
@@ -136,6 +164,10 @@ export const projectSlice = createSlice({
         state.loading = false;
         // Logic: You can update the local state if your BoardDto
         // contains a list of members, otherwise just stop loading.
+      })
+      /* --- Remove User from Board --- */
+      .addCase(removeUserFromBoard.fulfilled, (state) => {
+        state.loading = false;
       })
       /* --- Universal Matchers for DRY Logic --- */
       // Handle all pending board actions

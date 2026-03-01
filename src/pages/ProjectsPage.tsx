@@ -27,6 +27,7 @@ import {
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import PersonAddIcon from "@mui/icons-material/PersonAdd";
+import PersonRemoveIcon from "@mui/icons-material/PersonRemove";
 import { type RootState, type AppDispatch } from "../store/store";
 import { useDispatch, useSelector } from "react-redux";
 import { setAuthToken } from "../api/axiosInstance";
@@ -35,6 +36,7 @@ import {
   createBoard,
   addUserToBoard,
   clearError,
+  removeUserFromBoard,
 } from "../store/board/projectSlice";
 import { logout } from "../store/auth/authSlice";
 
@@ -56,11 +58,15 @@ const ProjectsPage = ({ onSelectBoard }: ProjectsPageProps) => {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
 
-  // Local state for Add User (Invite) Dialog
+  // Local state for "Add User" (Invite) Dialog
   const [addUserOpen, setAddUserOpen] = useState(false);
   const [selectedBoardId, setSelectedBoardId] = useState<number | null>(null);
   const [newUserEmail, setNewUserEmail] = useState("");
   const [newUserRole, setNewUserRole] = useState<"Admin" | "User">("User");
+
+  // Local state for "Remove User from Project" Dialog
+  const [removeUserOpen, setRemoveUserOpen] = useState(false);
+  const [removeUserEmail, setRemoveUserEmail] = useState("");
 
   // effect for initial board data fetching
   useEffect(() => {
@@ -92,9 +98,7 @@ const ProjectsPage = ({ onSelectBoard }: ProjectsPageProps) => {
     setDescription("");
   };
 
-  /**
-   * Handler to add a user to the project using Redux action
-   */
+  // Handler to add a user to the project using Redux action
   const handleAddUserSubmit = () => {
     if (selectedBoardId && newUserEmail) {
       dispatch(
@@ -111,6 +115,23 @@ const ProjectsPage = ({ onSelectBoard }: ProjectsPageProps) => {
         })
         .catch(() => {
           // Error is already handled by Redux global state (error matcher)
+        });
+    }
+  };
+
+  // Handler to remove a user from the project using Redux action
+  const handleRemoveUserSubmit = () => {
+    if (selectedBoardId && removeUserEmail) {
+      dispatch(
+        removeUserFromBoard({
+          boardId: selectedBoardId,
+          email: removeUserEmail,
+        }),
+      )
+        .unwrap()
+        .then(() => {
+          setRemoveUserOpen(false);
+          setRemoveUserEmail("");
         });
     }
   };
@@ -230,6 +251,19 @@ const ProjectsPage = ({ onSelectBoard }: ProjectsPageProps) => {
                       <PersonAddIcon fontSize="small" />
                     </IconButton>
                   </Tooltip>
+                  <Tooltip title="Remove member by email">
+                    <IconButton
+                      size="small"
+                      color="error"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedBoardId(board.id);
+                        setRemoveUserOpen(true);
+                      }}
+                    >
+                      <PersonRemoveIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
                 </Box>
               )}
             </Card>
@@ -280,7 +314,6 @@ const ProjectsPage = ({ onSelectBoard }: ProjectsPageProps) => {
             Enter the email address and select the permission level for the new
             member.
           </Typography>
-
           <TextField
             autoFocus
             margin="dense"
@@ -292,7 +325,6 @@ const ProjectsPage = ({ onSelectBoard }: ProjectsPageProps) => {
             onChange={(e) => setNewUserEmail(e.target.value)}
             sx={{ mb: 3 }}
           />
-
           {/* Permission Level Selection */}
           <FormControl component="fieldset">
             <FormLabel
@@ -322,7 +354,6 @@ const ProjectsPage = ({ onSelectBoard }: ProjectsPageProps) => {
             </RadioGroup>
           </FormControl>
         </DialogContent>
-
         <DialogActions>
           <Button onClick={() => setAddUserOpen(false)}>Cancel</Button>
           <Button
@@ -331,6 +362,37 @@ const ProjectsPage = ({ onSelectBoard }: ProjectsPageProps) => {
             disabled={loading || !newUserEmail.includes("@")}
           >
             {loading ? "Adding..." : "Add Member"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* --- Dialog: Remove User from Project --- */}
+      <Dialog open={removeUserOpen} onClose={() => setRemoveUserOpen(false)}>
+        <DialogTitle>Remove User from Project</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mb: 2 }}>
+            Enter the email of the user you want to remove from this project.
+          </Typography>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="User Email"
+            type="email"
+            fullWidth
+            variant="outlined"
+            value={removeUserEmail}
+            onChange={(e) => setRemoveUserEmail(e.target.value)}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setRemoveUserOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={handleRemoveUserSubmit}
+            disabled={!removeUserEmail.includes("@")}
+          >
+            Remove
           </Button>
         </DialogActions>
       </Dialog>
