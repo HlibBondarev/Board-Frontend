@@ -140,10 +140,9 @@ export const fetchBoard = createAsyncThunk(
       );
       return response.data;
     } catch (error) {
-      // Handle the error using AxiosError type instead of 'any'
-      const err = error as AxiosError<{ message?: string }>;
+      const err = error as AxiosError<{ detail?: string }>;
       return rejectWithValue(
-        err.response?.data?.message || "Failed to load board data",
+        err.response?.data?.detail || "Error: Failed to load board data",
       );
     }
   },
@@ -158,9 +157,9 @@ export const createIssue = createAsyncThunk(
       const response = await axiosInstance.post<IssueDto>("/issues", newIssue);
       return response.data;
     } catch (error) {
-      const err = error as AxiosError<{ message?: string }>;
+      const err = error as AxiosError<{ detail?: string }>;
       return rejectWithValue(
-        err.response?.data?.message || "Error: Creation Issue failed",
+        err.response?.data?.detail || "Error: Creation Issue failed",
       );
     }
   },
@@ -178,9 +177,9 @@ export const updateIssue = createAsyncThunk(
       );
       return response.data;
     } catch (error) {
-      const err = error as AxiosError<{ message?: string }>;
+      const err = error as AxiosError<{ detail?: string }>;
       return rejectWithValue(
-        err.response?.data?.message || "Error: Update Issue failed",
+        err.response?.data?.detail || "Error: Update Issue failed",
       );
     }
   },
@@ -200,9 +199,9 @@ export const deleteIssue = createAsyncThunk(
       );
       return response.data;
     } catch (error) {
-      const err = error as AxiosError<{ message?: string }>;
+      const err = error as AxiosError<{ detail?: string }>;
       return rejectWithValue(
-        err.response?.data?.message || "Error: Delete Issue failed",
+        err.response?.data?.detail || "Error: Delete Issue failed",
       );
     }
   },
@@ -240,8 +239,11 @@ export const moveIssue = createAsyncThunk(
       );
       return response.data;
     } catch (error) {
-      const err = error as AxiosError<{ message?: string }>;
-      return rejectWithValue(err.response?.data?.message || "Sync failed");
+      const err = error as AxiosError<{ detail?: string }>;
+      return rejectWithValue(
+        err.response?.data?.detail ||
+          "Error: Sync the board after moving the issue failed",
+      );
     }
   },
 );
@@ -257,9 +259,9 @@ export const addColumn = createAsyncThunk(
       );
       return response.data;
     } catch (error) {
-      const err = error as AxiosError<{ message?: string }>;
+      const err = error as AxiosError<{ detail?: string }>;
       return rejectWithValue(
-        err.response?.data?.message || "Error: Creation Column failed",
+        err.response?.data?.detail || "Error: Creation Column failed",
       );
     }
   },
@@ -276,9 +278,9 @@ export const updateColumn = createAsyncThunk(
       );
       return response.data; // Expected: updated Column object
     } catch (error) {
-      const err = error as AxiosError<{ message?: string }>;
+      const err = error as AxiosError<{ detail?: string }>;
       return rejectWithValue(
-        err.response?.data?.message || "Error: Update Column failed",
+        err.response?.data?.detail || "Error: Update Column failed",
       );
     }
   },
@@ -296,9 +298,9 @@ export const deleteColumn = createAsyncThunk(
       );
       return response.data;
     } catch (error) {
-      const err = error as AxiosError<{ message?: string }>;
+      const err = error as AxiosError<{ detail?: string }>;
       return rejectWithValue(
-        err.response?.data?.message || "Error: Delete Column failed",
+        err.response?.data?.detail || "Error: Delete Column failed",
       );
     }
   },

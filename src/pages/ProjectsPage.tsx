@@ -15,28 +15,52 @@ import {
   Chip,
   Grid,
   CircularProgress,
+  IconButton,
+  Tooltip,
+  Alert,
+  Snackbar,
+  FormControl,
+  FormLabel,
+  RadioGroup,
+  FormControlLabel,
+  Radio,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
+import PersonAddIcon from "@mui/icons-material/PersonAdd";
 import { type RootState, type AppDispatch } from "../store/store";
 import { useDispatch, useSelector } from "react-redux";
 import { setAuthToken } from "../api/axiosInstance";
-import { fetchBoardsByUser, createBoard } from "../store/board/projectSlice";
+import {
+  fetchBoardsByUser,
+  createBoard,
+  addUserToBoard,
+  clearError,
+} from "../store/board/projectSlice";
+import { logout } from "../store/auth/authSlice";
 
 interface ProjectsPageProps {
   onSelectBoard: (id: number) => void;
 }
 
 const ProjectsPage = ({ onSelectBoard }: ProjectsPageProps) => {
-  const { user, getAccessTokenSilently, logout } = useAuth0();
-  // Get boards and loading status from Redux
-  const { boards, loading } = useSelector((state: RootState) => state.project);
-  const [open, setOpen] = useState(false);
+  const { user, getAccessTokenSilently, logout: auth0Logout } = useAuth0();
+  const dispatch = useDispatch<AppDispatch>();
 
+  // Get data and global states from Redux
+  const { boards, loading, error } = useSelector(
+    (state: RootState) => state.project,
+  );
+
+  // Local state for Create Project Dialog
+  const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [userId, setUserId] = useState(user?.sub || "");
 
-  const dispatch = useDispatch<AppDispatch>();
+  // Local state for Add User (Invite) Dialog
+  const [addUserOpen, setAddUserOpen] = useState(false);
+  const [selectedBoardId, setSelectedBoardId] = useState<number | null>(null);
+  const [newUserEmail, setNewUserEmail] = useState("");
+  const [newUserRole, setNewUserRole] = useState<"Admin" | "User">("User");
 
   // effect for initial board data fetching
   useEffect(() => {
@@ -56,23 +80,52 @@ const ProjectsPage = ({ onSelectBoard }: ProjectsPageProps) => {
       }
     };
     initBoard();
-
     return () => {
       isMounted = false;
     };
   }, [dispatch, getAccessTokenSilently, user?.sub]);
 
-  const handleCreateBoard = async () => {
-    const createPayload = {
-      title,
-      description,
-      userId,
-    };
-    dispatch(createBoard(createPayload));
+  const handleCreateBoard = () => {
+    dispatch(createBoard({ title, description, userId: user?.sub || "" }));
     setOpen(false);
     setTitle("");
     setDescription("");
-    setUserId("");
+  };
+
+  /**
+   * Handler to add a user to the project using Redux action
+   */
+  const handleAddUserSubmit = () => {
+    if (selectedBoardId && newUserEmail) {
+      dispatch(
+        addUserToBoard({
+          boardId: selectedBoardId,
+          email: newUserEmail,
+          role: newUserRole, // Fixed role as per requirements
+        }),
+      )
+        .unwrap() // Allows us to handle the result of the async thunk
+        .then(() => {
+          setAddUserOpen(false);
+          setNewUserEmail("");
+        })
+        .catch(() => {
+          // Error is already handled by Redux global state (error matcher)
+        });
+    }
+  };
+
+  // Close Snackbar and clear Redux error
+  const handleCloseError = () => {
+    dispatch(clearError());
+  };
+
+  const handleLogout = () => {
+    // Logout logic (clear token, dispatch logout action, etc.)
+    dispatch(logout());
+    auth0Logout({
+      logoutParams: { returnTo: window.location.origin },
+    });
   };
 
   if (loading && boards.length === 0) {
@@ -93,6 +146,20 @@ const ProjectsPage = ({ onSelectBoard }: ProjectsPageProps) => {
 
   return (
     <Box sx={{ p: 4 }}>
+      {/* Notifications for Errors */}
+      <Snackbar
+        open={!!error}
+        autoHideDuration={6000}
+        onClose={handleCloseError}
+      >
+        <Alert
+          onClose={handleCloseError}
+          severity="error"
+          sx={{ width: "100%" }}
+        >
+          {error}
+        </Alert>
+      </Snackbar>
       <Box
         display="flex"
         justifyContent="space-between"
@@ -101,7 +168,11 @@ const ProjectsPage = ({ onSelectBoard }: ProjectsPageProps) => {
       >
         <Typography variant="h4">My Projects</Typography>
         <Box>
-          <Button variant="outlined" onClick={() => logout()} sx={{ mr: 2 }}>
+          <Button
+            variant="outlined"
+            onClick={() => handleLogout()}
+            sx={{ mr: 2 }}
+          >
             Logout
           </Button>
           <Button
@@ -141,11 +212,32 @@ const ProjectsPage = ({ onSelectBoard }: ProjectsPageProps) => {
                   </Typography>
                 </CardContent>
               </CardActionArea>
+              {/* INVITE ACTION: Only visible to Admins */}
+              {board.role === "Admin" && (
+                <Box
+                  sx={{ p: 1, borderTop: "1px solid #eee", textAlign: "right" }}
+                >
+                  <Tooltip title="Add member by email">
+                    <IconButton
+                      size="small"
+                      color="primary"
+                      onClick={(e) => {
+                        e.stopPropagation(); // Prevent navigating to the board
+                        setSelectedBoardId(board.id);
+                        setAddUserOpen(true);
+                      }}
+                    >
+                      <PersonAddIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                </Box>
+              )}
             </Card>
           </Grid>
         ))}
       </Grid>
 
+      {/* --- Dialog: Create New Project --- */}
       <Dialog open={open} onClose={() => setOpen(false)}>
         <DialogTitle>Create New Project</DialogTitle>
         <DialogContent>
@@ -176,6 +268,69 @@ const ProjectsPage = ({ onSelectBoard }: ProjectsPageProps) => {
             disabled={title.length < 3}
           >
             Create
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* --- Dialog: Add User to Project --- */}
+      <Dialog open={addUserOpen} onClose={() => setAddUserOpen(false)}>
+        <DialogTitle>Invite Member</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mb: 2, color: "text.secondary" }}>
+            Enter the email address and select the permission level for the new
+            member.
+          </Typography>
+
+          <TextField
+            autoFocus
+            margin="dense"
+            label="User Email"
+            type="email"
+            fullWidth
+            variant="outlined"
+            value={newUserEmail}
+            onChange={(e) => setNewUserEmail(e.target.value)}
+            sx={{ mb: 3 }}
+          />
+
+          {/* Permission Level Selection */}
+          <FormControl component="fieldset">
+            <FormLabel
+              component="legend"
+              sx={{ typography: "body2", fontWeight: "bold", mb: 1 }}
+            >
+              Permission Level
+            </FormLabel>
+            <RadioGroup
+              row
+              value={newUserRole}
+              // Use type assertion if event value isn't strictly typed by the UI library
+              onChange={(e) =>
+                setNewUserRole(e.target.value as "Admin" | "User")
+              }
+            >
+              <FormControlLabel
+                value="User"
+                control={<Radio size="small" />}
+                label="User"
+              />
+              <FormControlLabel
+                value="Admin"
+                control={<Radio size="small" />}
+                label="Admin"
+              />
+            </RadioGroup>
+          </FormControl>
+        </DialogContent>
+
+        <DialogActions>
+          <Button onClick={() => setAddUserOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            onClick={handleAddUserSubmit}
+            disabled={loading || !newUserEmail.includes("@")}
+          >
+            {loading ? "Adding..." : "Add Member"}
           </Button>
         </DialogActions>
       </Dialog>
