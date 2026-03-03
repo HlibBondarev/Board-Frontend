@@ -191,7 +191,7 @@ const IssueModal = ({ open, handleClose, columnId, issue }: Props) => {
         <Button
           onClick={handleSave}
           variant="contained"
-          disabled={!title.trim()}
+          disabled={title.trim().length < 3 || description.trim().length < 10}
           disableElevation
         >
           {issue ? "Save" : "Create"}

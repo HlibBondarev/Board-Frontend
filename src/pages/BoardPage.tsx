@@ -51,13 +51,13 @@ import GlobalErrorSnackbar from "../components/GlobalErrorSnackbar";
 
 interface BoardPageProps {
   isDemo?: boolean;
-  boardId?: number | string | null;
+  boardId: number;
   onBack: () => void;
 }
 
 const BoardPage = ({ boardId, onBack }: BoardPageProps) => {
   const dispatch = useDispatch<AppDispatch>();
-  const { user, getAccessTokenSilently } = useAuth0();
+  const { getAccessTokenSilently } = useAuth0();
 
   /* Local state for adding a new column */
   const [isAddingColumn, setIsAddingColumn] = useState(false);
@@ -91,14 +91,9 @@ const BoardPage = ({ boardId, onBack }: BoardPageProps) => {
     );
   };
 
-  const handleDeleteColumn = (columnId: number) => {
+  const handleDeleteColumn = (id: number) => {
     // Deleting via API
-    dispatch(
-      deleteColumn({
-        id: columnId,
-        userId: user?.sub ?? "",
-      }),
-    );
+    dispatch(deleteColumn({ id: id }));
   };
 
   // effect for initial board data fetching
@@ -110,9 +105,7 @@ const BoardPage = ({ boardId, onBack }: BoardPageProps) => {
         const token = await getAccessTokenSilently();
         if (isMounted) {
           setAuthToken(token);
-          dispatch(
-            fetchBoard({ Id: Number(boardId), UserId: user?.sub || "" }),
-          );
+          dispatch(fetchBoard({ id: boardId }));
         }
       } catch (e) {
         if (isMounted) {
@@ -126,7 +119,7 @@ const BoardPage = ({ boardId, onBack }: BoardPageProps) => {
       isMounted = false;
       dispatch(resetBoard());
     };
-  }, [dispatch, getAccessTokenSilently, boardId, user?.sub]);
+  }, [dispatch, getAccessTokenSilently, boardId]);
 
   // This effect handles the state rollback specifically when an error occurs
   useEffect(() => {}, [error]);
@@ -190,7 +183,7 @@ const BoardPage = ({ boardId, onBack }: BoardPageProps) => {
     // The thunk will use getState() to find the new position from Redux store.
     dispatch(
       moveIssue({
-        issueId: activeId,
+        id: activeId,
         columnId: Number(overContainer),
       }),
     );

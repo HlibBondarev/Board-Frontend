@@ -77,7 +77,7 @@ const ProjectsPage = ({ onSelectBoard }: ProjectsPageProps) => {
         const token = await getAccessTokenSilently();
         if (isMounted) {
           setAuthToken(token);
-          dispatch(fetchBoardsByUser({ userId: user?.sub }));
+          dispatch(fetchBoardsByUser());
         }
       } catch (e) {
         if (isMounted) {
@@ -92,7 +92,7 @@ const ProjectsPage = ({ onSelectBoard }: ProjectsPageProps) => {
   }, [dispatch, getAccessTokenSilently, user?.sub]);
 
   const handleCreateBoard = () => {
-    dispatch(createBoard({ title, description, userId: user?.sub || "" }));
+    dispatch(createBoard({ title, description }));
     setOpen(false);
     setTitle("");
     setDescription("");
@@ -299,7 +299,7 @@ const ProjectsPage = ({ onSelectBoard }: ProjectsPageProps) => {
           <Button
             variant="contained"
             onClick={() => handleCreateBoard()}
-            disabled={title.length < 3}
+            disabled={title.trim().length < 3 || description.trim().length < 10}
           >
             Create
           </Button>

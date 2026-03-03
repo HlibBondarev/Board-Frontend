@@ -247,7 +247,10 @@ const IssueCard = ({ issue, isOverlay = false }: Props) => {
             <Button
               onClick={() =>
                 dispatch(
-                  deleteIssue({ id: issue.id, columnId: issue.columnId }),
+                  deleteIssue({
+                    id: Number(issue.id),
+                    columnId: issue.columnId,
+                  }),
                 )
               }
               color="error"

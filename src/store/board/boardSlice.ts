@@ -129,14 +129,11 @@ export interface MoveIssueDto {
 // Async Thunk to load data
 export const fetchBoard = createAsyncThunk(
   "board/fetchBoard",
-  async (payload: { Id: number; UserId: string }, { rejectWithValue }) => {
+  async (payload: { id: number }, { rejectWithValue }) => {
     try {
-      // The endpoint must correspond to a controller in .NET (e.g., /boards/{id})
+      // GET request to .NET API (e.g., /boards/{id})
       const response = await axiosInstance.get<BoardWithIssuesDto>(
-        `/boards/${payload.Id}`, // Adjusted endpoint to fetch a specific board by ID
-        {
-          params: { UserId: payload.UserId }, // Pass as query parameter
-        },
+        `/boards/${payload.id}`, // Adjusted endpoint to fetch a specific board by ID
       );
       return response.data;
     } catch (error) {
@@ -153,7 +150,7 @@ export const createIssue = createAsyncThunk(
   "board/createIssue",
   async (newIssue: IssueCreateDto, { rejectWithValue }) => {
     try {
-      // POST request to .NET API (e.g., https://localhost:7283/api/issues)
+      // POST request to .NET API (e.g., /issues)
       const response = await axiosInstance.post<IssueDto>("/issues", newIssue);
       return response.data;
     } catch (error) {
@@ -170,7 +167,7 @@ export const updateIssue = createAsyncThunk(
   "board/updateIssue",
   async (updatedIssue: IssueUpdateDto, { rejectWithValue }) => {
     try {
-      // PUT request to .NET API (e.g., https://localhost:7283/api/issues)
+      // PUT request to .NET API (e.g., /issues)
       const response = await axiosInstance.put<IssueDto>(
         "/issues",
         updatedIssue,
@@ -188,12 +185,9 @@ export const updateIssue = createAsyncThunk(
 // Async Thunk to delete an issue
 export const deleteIssue = createAsyncThunk(
   "board/deleteIssue",
-  async (
-    payload: { id: string | number; columnId: number },
-    { rejectWithValue },
-  ) => {
+  async (payload: { id: number; columnId: number }, { rejectWithValue }) => {
     try {
-      // DELETE request to .NET API (e.g., https://localhost:7283/api/issues/{id})
+      // DELETE request to .NET API (e.g., /issues/{id})
       const response = await axiosInstance.delete<IssueDeleteResponse>(
         `/issues/${payload.id}`,
       );
@@ -212,7 +206,7 @@ export const deleteIssue = createAsyncThunk(
 export const moveIssue = createAsyncThunk(
   "board/moveIssue",
   async (
-    moveData: { issueId: number; columnId: number },
+    moveData: { id: number; columnId: number },
     { getState, rejectWithValue },
   ) => {
     try {
@@ -226,12 +220,13 @@ export const moveIssue = createAsyncThunk(
       if (!column) return rejectWithValue("Column not found");
 
       // Find the issue to get its new calculated position
-      const issue = column.issues.find((i) => i.id === moveData.issueId);
+      const issue = column.issues.find((i) => i.id === moveData.id);
       if (!issue) return rejectWithValue("Issue not found");
 
       // Send the new position (index) to the server
+      // PATCH request to .NET API (e.g., /issues/{id}/move)
       const response = await axiosInstance.patch(
-        `/issues/${moveData.issueId}/move`,
+        `/issues/${moveData.id}/move`,
         {
           columnId: moveData.columnId,
           position: issue.positionInColumn,
@@ -253,6 +248,7 @@ export const addColumn = createAsyncThunk(
   // The first argument is our data object, the second is the thunkAPI (destructured)
   async ({ boardId, newColumn }: ColumnCreateArgs, { rejectWithValue }) => {
     try {
+      // POST request to .NET API (e.g., /boards/{boardId}/columns)
       const response = await axiosInstance.post<ColumnDto>(
         `/boards/${boardId}/columns`,
         newColumn,
@@ -272,6 +268,7 @@ export const updateColumn = createAsyncThunk(
   "board/updateColumn",
   async ({ id, updateColumn }: ColumnUpdateArgs, { rejectWithValue }) => {
     try {
+      // PUT request to .NET API (e.g., /columns/{id})
       const response = await axiosInstance.put<ColumnUpdateResponseDto>(
         `/columns/${id}`,
         updateColumn,
@@ -289,12 +286,11 @@ export const updateColumn = createAsyncThunk(
 // 2. Thunk to delete column
 export const deleteColumn = createAsyncThunk(
   "board/deleteColumn",
-  // async (id: number) => {
-  async (deleteData: { id: number; userId: string }, { rejectWithValue }) => {
+  async (payload: { id: number }, { rejectWithValue }) => {
     try {
-      // DELETE request to .NET API (e.g., https://localhost:7283/api/columns/{id})
+      // DELETE request to .NET API (e.g., /columns/{id})
       const response = await axiosInstance.delete<ColumnDto[]>(
-        `/columns/${deleteData.id}?userId=${deleteData.userId}`,
+        `/columns/${payload.id}`,
       );
       return response.data;
     } catch (error) {

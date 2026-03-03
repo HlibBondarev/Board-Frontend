@@ -20,7 +20,6 @@ export interface BoardDto {
 export interface CreateBoardDto {
   title: string;
   description: string;
-  userId: string;
 }
 
 // Interface for adding a user to a specific board
@@ -44,12 +43,10 @@ const initialState: ProjectsState = {
 
 export const fetchBoardsByUser = createAsyncThunk(
   "project/fetchBoardsByUser",
-  async (payload: { userId: string | undefined }, { rejectWithValue }) => {
+  async (_, { rejectWithValue }) => {
     try {
-      // The endpoint must correspond to a controller in .NET (e.g., /column)
-      const response = await axiosInstance.get<BoardDto[]>(`/boards`, {
-        params: { userId: payload.userId },
-      });
+      // GET request to .NET API (https://localhost:7283/api/boards)
+      const response = await axiosInstance.get<BoardDto[]>(`/boards`);
       return response.data;
     } catch (error) {
       const err = error as AxiosError<{ detail?: string }>;
@@ -65,7 +62,7 @@ export const createBoard = createAsyncThunk(
   "project/createBoard",
   async (newBoard: CreateBoardDto, { rejectWithValue }) => {
     try {
-      // POST request to .NET API (e.g., https://localhost:7283/api/boards)
+      // POST request to .NET API (https://localhost:7283/api/boards)
       const response = await axiosInstance.post<BoardDto>("/boards", newBoard);
       return response.data;
     } catch (error) {
@@ -84,7 +81,7 @@ export const addUserToBoard = createAsyncThunk(
   "project/addUserToBoard",
   async (payload: AddUserToBoardDto, { rejectWithValue }) => {
     try {
-      // Adjusted endpoint: /api/boards/{id}/members
+      // Adjusted endpoint: https://localhost:7283/api/boards/{id}/members
       const response = await axiosInstance.post(
         `/boards/${payload.boardId}/members`,
         {
