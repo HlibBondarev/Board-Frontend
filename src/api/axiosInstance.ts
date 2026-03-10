@@ -1,10 +1,9 @@
 import axios from "axios";
+import { apiSettings } from "../AppSettings";
 
 const axiosInstance = axios.create({
-  baseURL: "https://localhost:7283/api",
-  headers: {
-    "Content-Type": "application/json",
-  },
+  baseURL: apiSettings.baseURL,
+  headers: apiSettings.headers,
 });
 
 // We will attach the token dynamically in our Redux Thunks or API calls
