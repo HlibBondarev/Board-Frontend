@@ -134,6 +134,7 @@ const ProjectsPage = ({ onSelectBoard }: ProjectsPageProps) => {
       )
         .unwrap()
         .then(() => {
+          // to update the list of boards
           dispatch(fetchBoardsByUser());
           setRemoveUserOpen(false);
           setRemoveUserEmail("");
