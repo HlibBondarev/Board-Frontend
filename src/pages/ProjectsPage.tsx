@@ -26,6 +26,7 @@ import {
   Radio,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
+import DeleteIcon from "@mui/icons-material/Delete";
 import PersonAddIcon from "@mui/icons-material/PersonAdd";
 import PersonRemoveIcon from "@mui/icons-material/PersonRemove";
 import { type RootState, type AppDispatch } from "../store/store";
@@ -37,6 +38,7 @@ import {
   addUserToBoard,
   clearError,
   removeUserFromBoard,
+  deleteBoard,
 } from "../store/board/projectSlice";
 import { logout } from "../store/auth/authSlice";
 
@@ -77,7 +79,7 @@ const ProjectsPage = ({ onSelectBoard }: ProjectsPageProps) => {
         const token = await getAccessTokenSilently();
         if (isMounted) {
           setAuthToken(token);
-          dispatch(fetchBoardsByUser({ userId: user?.sub }));
+          dispatch(fetchBoardsByUser());
         }
       } catch (e) {
         if (isMounted) {
@@ -92,7 +94,7 @@ const ProjectsPage = ({ onSelectBoard }: ProjectsPageProps) => {
   }, [dispatch, getAccessTokenSilently, user?.sub]);
 
   const handleCreateBoard = () => {
-    dispatch(createBoard({ title, description, userId: user?.sub || "" }));
+    dispatch(createBoard({ title, description }));
     setOpen(false);
     setTitle("");
     setDescription("");
@@ -110,6 +112,8 @@ const ProjectsPage = ({ onSelectBoard }: ProjectsPageProps) => {
       )
         .unwrap() // Allows us to handle the result of the async thunk
         .then(() => {
+          // to update the list of boards
+          dispatch(fetchBoardsByUser());
           setAddUserOpen(false);
           setNewUserEmail("");
         })
@@ -130,9 +134,17 @@ const ProjectsPage = ({ onSelectBoard }: ProjectsPageProps) => {
       )
         .unwrap()
         .then(() => {
+          dispatch(fetchBoardsByUser());
           setRemoveUserOpen(false);
           setRemoveUserEmail("");
         });
+    }
+  };
+
+  const handleDeleteClick = (boardId: number) => {
+    if (window.confirm("Delete this board?")) {
+      // Deleting via API
+      dispatch(deleteBoard({ boardId: boardId }));
     }
   };
 
@@ -264,6 +276,18 @@ const ProjectsPage = ({ onSelectBoard }: ProjectsPageProps) => {
                       <PersonRemoveIcon fontSize="small" />
                     </IconButton>
                   </Tooltip>
+                  <Tooltip title="Remove this board">
+                    <IconButton
+                      size="small"
+                      color="error"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteClick(board.id);
+                      }}
+                    >
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
                 </Box>
               )}
             </Card>
@@ -299,7 +323,7 @@ const ProjectsPage = ({ onSelectBoard }: ProjectsPageProps) => {
           <Button
             variant="contained"
             onClick={() => handleCreateBoard()}
-            disabled={title.length < 3}
+            disabled={title.trim().length < 3 || description.trim().length < 10}
           >
             Create
           </Button>

@@ -32,7 +32,7 @@ function App() {
 
   // 1. Demo Mode: Show Board using LocalStorage
   if (isDemoMode) {
-    return <BoardPage isDemo={true} onBack={() => setIsDemoMode(false)} />;
+    //return <BoardPage isDemo={true} onBack={() => setIsDemoMode(false)} />;
   }
 
   // 2. Authenticated User Logic
@@ -40,7 +40,7 @@ function App() {
     if (selectedBoardId) {
       return (
         <BoardPage
-          boardId={selectedBoardId}
+          boardId={Number(selectedBoardId)}
           onBack={() => setSelectedBoardId(null)}
         />
       );

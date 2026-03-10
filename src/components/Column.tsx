@@ -209,7 +209,7 @@ const Column = ({ column, onUpdateColumn, onDeleteColumn }: Props) => {
       <IssueModal
         open={isModalOpen}
         handleClose={handleCloseModal}
-        columnId={column.id}
+        columnId={Number(column.id)}
       />
     </Paper>
   );

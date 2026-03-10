@@ -19,10 +19,9 @@ export interface IssueDto {
   positionInColumn: number;
   createdAt: string;
   creatorId: string;
-  assigneeId?: string;
+  assigneeId: string | null;
   creatorName: string;
-  assigneeName?: string;
-  isOptimistic?: boolean; // Flag to identify issues created or updated during optimistic updates
+  assigneeName: string | null;
 }
 
 interface IssueDeleteResponse {
@@ -40,7 +39,7 @@ export interface BoardWithIssuesDto {
 }
 
 export interface ColumnDto {
-  id: number;
+  id: number | string;
   name: string;
   description: string;
   position: number;
@@ -70,29 +69,27 @@ const initialState: BoardState = {
 };
 
 // Add CreateIssueDto interface for issue creation payload
-export interface IssueCreateDto {
+interface IssueCreateDto {
   tempId: string; // Add this for tracking during optimistic updates
   title: string;
   description: string;
-  dueDate?: string | null;
-  columnId: number;
+  dueDate: string | null;
   positionInColumn: number;
   createdAt: string;
   creatorId: string;
-  assigneeId?: string | undefined;
+  assigneeId: string | null;
   creatorName: string | null;
-  assigneeName?: string | null;
+  assigneeName: string | null;
 }
 
 // Add UpdateIssueDto interface
 export interface IssueUpdateDto {
-  id: number | string;
   title: string;
   description: string;
-  dueDate?: string | null;
+  dueDate: string | null;
   columnId: number;
-  assigneeId?: string | undefined;
-  assigneeName?: string | null;
+  assigneeId: string | null;
+  assigneeName: string | null;
 }
 
 // Add CreateColumnDto interface for column creation payload
@@ -110,12 +107,23 @@ export interface ColumnUpdateResponseDto {
 // Define an interface for the input data
 interface ColumnCreateArgs {
   boardId: number;
+  tempColumnId: string;
   newColumn: ColumnCreateUpdateDto;
 }
 
 interface ColumnUpdateArgs {
-  id: number;
+  columnId: number;
   updateColumn: ColumnCreateUpdateDto;
+}
+
+export interface IssueCreateArgs {
+  columnId: number;
+  newIssue: IssueCreateDto;
+}
+
+export interface IssueUpdateArgs {
+  issueId: number;
+  updatedIssue: IssueUpdateDto;
 }
 
 // Add MoveIssueDto interface
@@ -129,14 +137,11 @@ export interface MoveIssueDto {
 // Async Thunk to load data
 export const fetchBoard = createAsyncThunk(
   "board/fetchBoard",
-  async (payload: { Id: number; UserId: string }, { rejectWithValue }) => {
+  async (payload: { boardId: number }, { rejectWithValue }) => {
     try {
-      // The endpoint must correspond to a controller in .NET (e.g., /boards/{id})
+      // GET request to .NET API (e.g., /boards/{id})
       const response = await axiosInstance.get<BoardWithIssuesDto>(
-        `/boards/${payload.Id}`, // Adjusted endpoint to fetch a specific board by ID
-        {
-          params: { UserId: payload.UserId }, // Pass as query parameter
-        },
+        `/boards/${payload.boardId}`, // Adjusted endpoint to fetch a specific board by ID
       );
       return response.data;
     } catch (error) {
@@ -151,10 +156,13 @@ export const fetchBoard = createAsyncThunk(
 // Async Thunk to create a new issue
 export const createIssue = createAsyncThunk(
   "board/createIssue",
-  async (newIssue: IssueCreateDto, { rejectWithValue }) => {
+  async ({ columnId, newIssue }: IssueCreateArgs, { rejectWithValue }) => {
     try {
-      // POST request to .NET API (e.g., https://localhost:7283/api/issues)
-      const response = await axiosInstance.post<IssueDto>("/issues", newIssue);
+      // POST request to .NET API (e.g., /columns/{columnId}/issues)
+      const response = await axiosInstance.post<number>(
+        `/columns/${columnId}/issues`,
+        newIssue,
+      );
       return response.data;
     } catch (error) {
       const err = error as AxiosError<{ detail?: string }>;
@@ -168,11 +176,14 @@ export const createIssue = createAsyncThunk(
 // Async Thunk to update an existing issue
 export const updateIssue = createAsyncThunk(
   "board/updateIssue",
-  async (updatedIssue: IssueUpdateDto, { rejectWithValue }) => {
+  async (
+    { issueId: issueId, updatedIssue }: IssueUpdateArgs,
+    { rejectWithValue },
+  ) => {
     try {
-      // PUT request to .NET API (e.g., https://localhost:7283/api/issues)
-      const response = await axiosInstance.put<IssueDto>(
-        "/issues",
+      // PUT request to .NET API (e.g., /issues)
+      const response = await axiosInstance.put<boolean>(
+        `/issues/${issueId}`,
         updatedIssue,
       );
       return response.data;
@@ -189,13 +200,13 @@ export const updateIssue = createAsyncThunk(
 export const deleteIssue = createAsyncThunk(
   "board/deleteIssue",
   async (
-    payload: { id: string | number; columnId: number },
+    payload: { issueId: number; columnId: number },
     { rejectWithValue },
   ) => {
     try {
-      // DELETE request to .NET API (e.g., https://localhost:7283/api/issues/{id})
+      // DELETE request to .NET API (e.g., /issues/{id})
       const response = await axiosInstance.delete<IssueDeleteResponse>(
-        `/issues/${payload.id}`,
+        `/issues/${payload.issueId}`,
       );
       return response.data;
     } catch (error) {
@@ -230,6 +241,7 @@ export const moveIssue = createAsyncThunk(
       if (!issue) return rejectWithValue("Issue not found");
 
       // Send the new position (index) to the server
+      // PATCH request to .NET API (e.g., /issues/{id}/move)
       const response = await axiosInstance.patch(
         `/issues/${moveData.issueId}/move`,
         {
@@ -253,6 +265,7 @@ export const addColumn = createAsyncThunk(
   // The first argument is our data object, the second is the thunkAPI (destructured)
   async ({ boardId, newColumn }: ColumnCreateArgs, { rejectWithValue }) => {
     try {
+      // POST request to .NET API (e.g., /boards/{boardId}/columns)
       const response = await axiosInstance.post<ColumnDto>(
         `/boards/${boardId}/columns`,
         newColumn,
@@ -267,13 +280,17 @@ export const addColumn = createAsyncThunk(
   },
 );
 
-// 1. Thunk to update Name and Description
+// Thunk to update Name and Description
 export const updateColumn = createAsyncThunk(
   "board/updateColumn",
-  async ({ id, updateColumn }: ColumnUpdateArgs, { rejectWithValue }) => {
+  async (
+    { columnId: columnId, updateColumn }: ColumnUpdateArgs,
+    { rejectWithValue },
+  ) => {
     try {
-      const response = await axiosInstance.put<ColumnUpdateResponseDto>(
-        `/columns/${id}`,
+      // PUT request to .NET API (e.g., /columns/{id})
+      const response = await axiosInstance.put<boolean>(
+        `/columns/${columnId}`,
         updateColumn,
       );
       return response.data; // Expected: updated Column object
@@ -286,15 +303,14 @@ export const updateColumn = createAsyncThunk(
   },
 );
 
-// 2. Thunk to delete column
+// Thunk to delete column
 export const deleteColumn = createAsyncThunk(
   "board/deleteColumn",
-  // async (id: number) => {
-  async (deleteData: { id: number; userId: string }, { rejectWithValue }) => {
+  async (payload: { columnId: number }, { rejectWithValue }) => {
     try {
-      // DELETE request to .NET API (e.g., https://localhost:7283/api/columns/{id})
+      // DELETE request to .NET API (e.g., /columns/{id})
       const response = await axiosInstance.delete<ColumnDto[]>(
-        `/columns/${deleteData.id}?userId=${deleteData.userId}`,
+        `/columns/${payload.columnId}`,
       );
       return response.data;
     } catch (error) {
@@ -310,10 +326,6 @@ export const boardSlice = createSlice({
   name: "board",
   initialState: initialState,
   reducers: {
-    // // Reducer for manual state updates (e.g., after Drag-and-Drop)
-    // setColumns: (state, action: PayloadAction<Column[]>) => {
-    //   state.columns = action.payload;
-    // },
     setUserRole: (state, action: PayloadAction<"Admin" | "User">) => {
       state.userRole = action.payload;
     },
@@ -424,24 +436,23 @@ export const boardSlice = createSlice({
         if (column) {
           if (!column.issues) column.issues = [];
           column.issues.push({
-            ...dto,
-            id: dto.tempId, // Use tempId for React keys before server response
-            creatorName: dto.creatorName || "",
-            assigneeName: dto.assigneeName || null,
-            isOptimistic: true,
+            ...dto.newIssue,
+            id: dto.newIssue.tempId, // Use tempId for React keys before server response
+            columnId: dto.columnId,
+            creatorName: dto.newIssue.creatorName || "",
+            assigneeName: dto.newIssue.assigneeName || null,
           } as IssueDto);
         }
       })
       .addCase(createIssue.fulfilled, (state, action) => {
-        const tempId = action.meta.arg.tempId;
+        const tempId = action.meta.arg.newIssue.tempId;
         const column = state.columns.find(
-          (c) => c.id === action.payload.columnId,
+          (c) => c.id === action.meta.arg.columnId,
         );
         if (column?.issues) {
           const index = column.issues.findIndex((i) => i.id === tempId);
           if (index !== -1) {
-            // Replace temp issue with the real one from server
-            column.issues[index] = { ...action.payload, isOptimistic: false };
+            column.issues[index].id = action.payload;
           }
         }
       })
@@ -451,19 +462,14 @@ export const boardSlice = createSlice({
           state.previousColumns = current(state.columns);
         }
         const updated = action.meta.arg;
-        const column = state.columns.find((c) => c.id === updated.columnId);
-        const issue = column?.issues.find((i) => i.id === updated.id);
+        const column = state.columns.find(
+          (c) => c.id === updated.updatedIssue.columnId,
+        );
+        const issue = column?.issues.find((i) => i.id === updated.issueId);
         if (issue) {
-          Object.assign(issue, { ...updated, isOptimistic: true });
-        }
-      })
-      .addCase(updateIssue.fulfilled, (state, action) => {
-        const { id, columnId } = action.payload;
-        const column = state.columns.find((c) => c.id === columnId);
-        const issue = column?.issues.find((i) => i.id === id);
-
-        if (issue) {
-          Object.assign(issue, action.payload, { isOptimistic: false });
+          Object.assign(issue, {
+            ...updated.updatedIssue,
+          });
         }
       })
       /* --- Issue Deletion (Optimistic) --- */
@@ -471,10 +477,10 @@ export const boardSlice = createSlice({
         if (!state.previousColumns || state.previousColumns.length === 0) {
           state.previousColumns = current(state.columns);
         }
-        const { id, columnId } = action.meta.arg;
+        const { issueId, columnId } = action.meta.arg;
         const column = state.columns.find((c) => c.id === columnId);
         if (column) {
-          column.issues = column.issues.filter((i) => i.id !== id);
+          column.issues = column.issues.filter((i) => i.id !== issueId);
         }
       })
       .addCase(deleteIssue.fulfilled, (state, action) => {
@@ -485,19 +491,40 @@ export const boardSlice = createSlice({
           column.issues = issues;
         }
       })
-      /* --- Create Column --- */
-      // })
-      .addCase(addColumn.fulfilled, (state, action) => {
-        state.columns.push({ ...action.payload, issues: [] });
+      /* --- Create Column (Optimistic)--- */
+      .addCase(addColumn.pending, (state, action) => {
+        if (!state.previousColumns || state.previousColumns.length === 0) {
+          state.previousColumns = current(state.columns);
+        }
+        const dto = action.meta.arg;
+        const position =
+          state.columns.length == 0 ? 0 : state.columns.length + 1;
+
+        state.columns.push({
+          ...dto.newColumn,
+          id: dto.tempColumnId,
+          position: position,
+          issues: [],
+        });
       })
-      /* --- Update Column --- */
-      .addCase(updateColumn.fulfilled, (state, action) => {
-        const index = state.columns.findIndex(
-          (c) => c.id === action.payload.id,
-        );
+      .addCase(addColumn.fulfilled, (state, action) => {
+        const tempId = action.meta.arg.tempColumnId;
+        const index = state.columns.findIndex((i) => i.id === tempId);
         if (index !== -1) {
-          state.columns[index].name = action.payload.name;
-          state.columns[index].description = action.payload.description;
+          state.columns[index].id = action.payload.id;
+          state.columns[index].position = action.payload.position;
+        }
+      })
+      /* --- Update Column (Optimistic) --- */
+      .addCase(updateColumn.pending, (state, action) => {
+        if (!state.previousColumns || state.previousColumns.length === 0) {
+          state.previousColumns = current(state.columns);
+        }
+        const updated = action.meta.arg;
+        const index = state.columns.findIndex((c) => c.id === updated.columnId);
+        if (index !== -1) {
+          state.columns[index].name = updated.updateColumn.name;
+          state.columns[index].description = updated.updateColumn.description;
         }
       })
       /* --- Delete Column --- */

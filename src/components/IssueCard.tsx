@@ -125,21 +125,50 @@ const IssueCard = ({ issue, isOverlay = false }: Props) => {
       }}
     >
       <CardContent sx={{ "&:last-child": { pb: 2 } }}>
-        <Box sx={{ position: "absolute", top: 4, right: 4, display: "flex" }}>
-          <IconButton size="small" onClick={handleOpenModal}>
-            <EditIcon fontSize="inherit" />
-          </IconButton>
-          <IconButton
-            size="small"
-            color="error"
-            onClick={() => setDeleteConfirmOpen(true)}
+        {/* Updated Header Layout:
+            'flexWrap: nowrap' ensures title and icons stay on the same line.
+        */}
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 1,
+            mb: 1,
+          }}
+        >
+          <Typography
+            variant="subtitle1"
+            fontWeight="600"
+            sx={{
+              lineHeight: 1.2,
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              flexGrow: 1,
+            }}
           >
-            <DeleteIcon fontSize="inherit" />
-          </IconButton>
+            {issue.title}
+          </Typography>
+
+          <Box
+            sx={{
+              display: "flex",
+              flexShrink: 0, // Icons stay fixed and never shrink or wrap
+            }}
+          >
+            <IconButton size="small" onClick={handleOpenModal}>
+              <EditIcon fontSize="small" />
+            </IconButton>
+            <IconButton
+              size="small"
+              color="error"
+              onClick={() => setDeleteConfirmOpen(true)}
+            >
+              <DeleteIcon fontSize="small" />
+            </IconButton>
+          </Box>
         </Box>
-        <Typography variant="subtitle1" fontWeight="600" gutterBottom>
-          {issue.title}
-        </Typography>
 
         <Typography
           variant="body2"
@@ -247,7 +276,10 @@ const IssueCard = ({ issue, isOverlay = false }: Props) => {
             <Button
               onClick={() =>
                 dispatch(
-                  deleteIssue({ id: issue.id, columnId: issue.columnId }),
+                  deleteIssue({
+                    issueId: Number(issue.id),
+                    columnId: issue.columnId,
+                  }),
                 )
               }
               color="error"

@@ -4,7 +4,6 @@ import { Provider } from "react-redux";
 import { Auth0Provider } from "@auth0/auth0-react";
 import CssBaseline from "@mui/material/CssBaseline";
 import { store } from "./store/store";
-// import "./index.css";
 import App from "./App";
 import { authSettings } from "./AppSettings";
 
