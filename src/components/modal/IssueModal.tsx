@@ -21,8 +21,8 @@ import {
   createIssue,
   updateIssue,
   type IssueDto,
-  type IssueCreateDto,
-  type IssueUpdateDto,
+  type IssueCreateArgs,
+  type IssueUpdateArgs,
 } from "../../store/board/boardSlice";
 import {
   PersonAddAlt as PersonIcon,
@@ -55,34 +55,40 @@ const IssueModal = ({ open, handleClose, columnId, issue }: Props) => {
   const columns = useSelector((state: RootState) => state.board.columns);
   const currentColumn = columns.find((c) => c.id === columnId);
   const nextPosition = currentColumn?.issues?.length || 0; // Position is 0-based index
+  // Get userName from Redux
+  const { userName } = useSelector((state: RootState) => state.project);
 
   const handleSave = async () => {
     if (issue) {
       // Use UpdateIssueDto (no creatorName)
-      const updatePayload: IssueUpdateDto = {
-        id: issue.id,
-        title,
-        description,
-        dueDate: dueDate ? dueDate.toISOString() : null,
-        columnId: issue.columnId,
-        assigneeId: isSelfAssigned ? user?.sub : undefined,
-        assigneeName: isSelfAssigned ? user?.name : null,
+      const updatePayload: IssueUpdateArgs = {
+        issueId: Number(issue?.id),
+        updatedIssue: {
+          title,
+          description,
+          dueDate: dueDate ? dueDate.toISOString() : null,
+          columnId: issue.columnId,
+          assigneeId: isSelfAssigned ? user?.sub || null : null,
+          assigneeName: isSelfAssigned ? userName || null : null,
+        },
       };
       dispatch(updateIssue(updatePayload));
     } else {
       // Use CreateIssueDto
-      const createPayload: IssueCreateDto = {
-        tempId: `temp-${crypto.randomUUID()}`,
-        title,
-        description,
-        dueDate: dueDate ? dueDate.toISOString() : null,
-        columnId,
-        positionInColumn: nextPosition,
-        createdAt: new Date().toISOString(),
-        creatorId: user?.sub || "guest",
-        creatorName: user?.name || null,
-        assigneeId: isSelfAssigned ? user?.sub : undefined,
-        assigneeName: isSelfAssigned ? user?.name || null : undefined,
+      const createPayload: IssueCreateArgs = {
+        columnId: Number(columnId),
+        newIssue: {
+          tempId: `temp-${crypto.randomUUID()}`,
+          title,
+          description,
+          dueDate: dueDate ? dueDate.toISOString() : null,
+          positionInColumn: nextPosition,
+          createdAt: new Date().toISOString(),
+          creatorId: user?.sub || "guest",
+          creatorName: user?.name || null,
+          assigneeId: isSelfAssigned ? user?.sub || null : null,
+          assigneeName: isSelfAssigned ? userName || null : null,
+        },
       };
       dispatch(createIssue(createPayload));
 

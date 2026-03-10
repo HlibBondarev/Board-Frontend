@@ -17,6 +17,11 @@ export interface BoardDto {
   role: "Admin" | "User";
 }
 
+interface UserBoards {
+  userName: string;
+  boards: BoardDto[];
+}
+
 export interface CreateBoardDto {
   title: string;
   description: string;
@@ -33,20 +38,23 @@ interface ProjectsState {
   boards: BoardDto[];
   loading: boolean;
   error: string | null;
+  userName: string;
 }
 
 const initialState: ProjectsState = {
   boards: [],
   loading: false,
   error: null,
+  userName: "",
 };
 
+// Thunk to to get boards for a specific user
 export const fetchBoardsByUser = createAsyncThunk(
   "project/fetchBoardsByUser",
   async (_, { rejectWithValue }) => {
     try {
       // GET request to .NET API (https://localhost:7283/api/boards)
-      const response = await axiosInstance.get<BoardDto[]>(`/boards`);
+      const response = await axiosInstance.get<UserBoards>(`/boards`);
       return response.data;
     } catch (error) {
       const err = error as AxiosError<{ detail?: string }>;
@@ -58,6 +66,7 @@ export const fetchBoardsByUser = createAsyncThunk(
   },
 );
 
+// Thunk to create a board
 export const createBoard = createAsyncThunk(
   "project/createBoard",
   async (newBoard: CreateBoardDto, { rejectWithValue }) => {
@@ -110,7 +119,7 @@ export const removeUserFromBoard = createAsyncThunk(
   ) => {
     try {
       // Adjusted endpoint: /api/boards/{id}/members
-      const response = await axiosInstance.delete(
+      const response = await axiosInstance.delete<string>(
         `/boards/${boardId}/members`,
         {
           data: { email },
@@ -122,6 +131,25 @@ export const removeUserFromBoard = createAsyncThunk(
       return rejectWithValue(
         err.response?.data?.detail ||
           "Error: Failed to remove User from project",
+      );
+    }
+  },
+);
+
+// Thunk to delete a board
+export const deleteBoard = createAsyncThunk(
+  "project/deleteBoard",
+  async (payload: { boardId: number }, { rejectWithValue }) => {
+    try {
+      // DELETE request to .NET API (e.g., /boards/{id})
+      const response = await axiosInstance.delete<string>(
+        `/boards/${payload.boardId}`,
+      );
+      return response.data;
+    } catch (error) {
+      const err = error as AxiosError<{ detail?: string }>;
+      return rejectWithValue(
+        err.response?.data?.detail || "Error: Delete Column failed",
       );
     }
   },
@@ -140,14 +168,12 @@ export const projectSlice = createSlice({
   extraReducers: (builder) => {
     builder
       /* --- Board Fetching --- */
-      .addCase(fetchBoardsByUser.pending, (state) => {
-        state.loading = true;
-      })
       .addCase(
         fetchBoardsByUser.fulfilled,
-        (state, action: PayloadAction<BoardDto[]>) => {
+        (state, action: PayloadAction<UserBoards>) => {
           state.loading = false;
-          state.boards = action.payload;
+          state.boards = action.payload.boards;
+          state.userName = action.payload.userName;
         },
       )
       /* --- Board Creation --- */
@@ -159,11 +185,25 @@ export const projectSlice = createSlice({
       /* --- Add User to Board --- */
       .addCase(addUserToBoard.fulfilled, (state) => {
         state.loading = false;
-        // Logic: You can update the local state if your BoardDto
+        // Logic: for updating the local state if BoardDto
         // contains a list of members, otherwise just stop loading.
+        // Now BoardDto doesn't contain a list of members!
       })
       /* --- Remove User from Board --- */
       .addCase(removeUserFromBoard.fulfilled, (state) => {
+        state.loading = false;
+        // Logic: for updating the local state if BoardDto
+        // contains a list of members, otherwise just stop loading.
+        // Now BoardDto doesn't contain a list of members!
+      })
+      /* --- Board Deleting --- */
+      .addCase(deleteBoard.fulfilled, (state, action) => {
+        // Add the new board returned by the server to the array
+        const boardId = action.meta.arg.boardId;
+        const board = state.boards.find((c) => c.id === boardId);
+        if (board) {
+          state.boards = state.boards.filter((i) => i.id !== boardId);
+        }
         state.loading = false;
       })
       /* --- Universal Matchers for DRY Logic --- */

@@ -3,7 +3,6 @@ import { useDispatch, useSelector } from "react-redux";
 import { useAuth0 } from "@auth0/auth0-react";
 import {
   Box,
-  Container,
   Typography,
   CircularProgress,
   Chip,
@@ -87,13 +86,16 @@ const BoardPage = ({ boardId, onBack }: BoardPageProps) => {
   ) => {
     // Dispatching thunk with updated data (Name + Description)
     dispatch(
-      updateColumn({ id: columnId, updateColumn: { name, description } }),
+      updateColumn({
+        columnId: columnId,
+        updateColumn: { name, description },
+      }),
     );
   };
 
-  const handleDeleteColumn = (id: number) => {
+  const handleDeleteColumn = (columnId: number) => {
     // Deleting via API
-    dispatch(deleteColumn({ id: id }));
+    dispatch(deleteColumn({ columnId: columnId }));
   };
 
   // effect for initial board data fetching
@@ -105,7 +107,7 @@ const BoardPage = ({ boardId, onBack }: BoardPageProps) => {
         const token = await getAccessTokenSilently();
         if (isMounted) {
           setAuthToken(token);
-          dispatch(fetchBoard({ id: boardId }));
+          dispatch(fetchBoard({ boardId: boardId }));
         }
       } catch (e) {
         if (isMounted) {
@@ -137,6 +139,7 @@ const BoardPage = ({ boardId, onBack }: BoardPageProps) => {
       dispatch(
         addColumn({
           boardId: Number(boardId),
+          tempColumnId: `temp-${crypto.randomUUID()}`,
           newColumn: {
             name: newColumnName.trim(),
             description: newColumnDescription.trim(),
@@ -183,7 +186,7 @@ const BoardPage = ({ boardId, onBack }: BoardPageProps) => {
     // The thunk will use getState() to find the new position from Redux store.
     dispatch(
       moveIssue({
-        id: activeId,
+        issueId: activeId,
         columnId: Number(overContainer),
       }),
     );
@@ -237,31 +240,42 @@ const BoardPage = ({ boardId, onBack }: BoardPageProps) => {
     >
       <Box
         sx={{
-          /* Trello-like blue background */
           backgroundColor: "#0079bf",
           minHeight: "100vh",
-          pt: 4,
-          pb: 4,
           display: "flex",
           flexDirection: "column",
+          /* Main scroll container: only this level handles overflow */
+          overflowX: "auto",
+          width: "100%",
+          /* Custom scrollbar for better visibility on blue */
+          "&::-webkit-scrollbar": { height: 12 },
+          "&::-webkit-scrollbar-track": {
+            backgroundColor: "rgba(255,255,255,0.1)",
+          },
+          "&::-webkit-scrollbar-thumb": {
+            backgroundColor: "rgba(255,255,255,0.3)",
+            borderRadius: 2,
+            "&:hover": { backgroundColor: "rgba(255,255,255,0.4)" },
+          },
         }}
       >
-        <Container maxWidth={false}>
-          <Box
-            sx={{ display: "flex", alignItems: "center", gap: 1, mb: 4, mt: 1 }}
-          >
+        {/* Header and Filters Section */}
+        <Box
+          sx={{ p: 3, pl: 4, display: "flex", flexDirection: "column", gap: 2 }}
+        >
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
             <IconButton
               onClick={onBack}
-              sx={{ color: "white" }} // White icon for dark background
-              aria-label="back to projects"
+              sx={{ color: "white" }}
+              aria-label="back"
             >
               <ArrowBackIcon />
             </IconButton>
-
-            <Typography variant="h4" fontWeight="700" sx={{ px: 1 }}>
+            <Typography variant="h4" fontWeight="700" color="white">
               Dashboard
             </Typography>
           </Box>
+
           <Fade in={Boolean(filterAssigneeName)}>
             <Chip
               icon={<FilterIcon />}
@@ -270,138 +284,120 @@ const BoardPage = ({ boardId, onBack }: BoardPageProps) => {
               deleteIcon={<CloseIcon />}
               color="primary"
               variant="filled"
-              sx={{ fontWeight: 600 }}
+              sx={{ fontWeight: 600, width: "fit-content" }}
             />
           </Fade>
-          <GlobalErrorSnackbar /> {/* Listens for errors globally */}
-          <Box
-            sx={{
-              display: "flex",
-              alignItems: "flex-start", // Keeps everything at the top
-              overflowX: "auto",
-              pb: 3,
-              px: 3,
-              gap: 2,
-              width: "100%",
-              /* Custom scrollbar for dark background */
-              "&::-webkit-scrollbar": { height: 10 },
-              "&::-webkit-scrollbar-track": {
-                backgroundColor: "rgba(255,255,255,0.1)",
-                borderRadius: 5,
-              },
-              "&::-webkit-scrollbar-thumb": {
-                backgroundColor: "rgba(255,255,255,0.3)",
-                borderRadius: 5,
-              },
-            }}
-          >
-            {/* Existing Columns */}
-            {columns.map((col) => (
-              <Column
-                key={col.id}
-                column={col}
-                onUpdateColumn={(id, { name, description }) =>
-                  handleUpdateColumn(id as number, name, description)
-                }
-                onDeleteColumn={(id) => handleDeleteColumn(id as number)}
-              />
-            ))}
+        </Box>
 
-            {/* Add Column Section - Now aligned */}
-            <Box
-              sx={{
-                width: 300,
-                flexShrink: 0,
-                mt: 0,
-              }}
-            >
-              {!isAddingColumn ? (
-                <Button
+        <GlobalErrorSnackbar />
+
+        {/* Horizontal Columns Container */}
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "flex-start",
+            px: 4,
+            pb: 4,
+            gap: 2,
+            /* minWidth ensures columns don't shrink and push the parent to scroll */
+            minWidth: "100%",
+            width: "max-content",
+          }}
+        >
+          {/* Mapped Columns */}
+          {columns.map((col) => (
+            <Column
+              key={col.id}
+              column={col}
+              onUpdateColumn={(id, { name, description }) =>
+                handleUpdateColumn(id as number, name, description)
+              }
+              onDeleteColumn={(id) => handleDeleteColumn(id as number)}
+            />
+          ))}
+
+          {/* Add Column Section */}
+          <Box sx={{ width: 300, flexShrink: 0 }}>
+            {!isAddingColumn ? (
+              <Button
+                fullWidth
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={() => setIsAddingColumn(true)}
+                sx={{
+                  justifyContent: "flex-start",
+                  backgroundColor: "rgba(255, 255, 255, 0.2)",
+                  color: "white",
+                  textTransform: "none",
+                  fontWeight: 600,
+                  borderRadius: 2,
+                  py: 1.5,
+                  "&:hover": { backgroundColor: "rgba(255, 255, 255, 0.3)" },
+                }}
+              >
+                Add another column
+              </Button>
+            ) : (
+              <Paper
+                sx={{
+                  p: 1.5,
+                  backgroundColor: "#f1f2f4",
+                  borderRadius: 2,
+                  boxShadow: "0 4px 8px rgba(0,0,0,0.2)",
+                }}
+              >
+                <TextField
+                  autoFocus
                   fullWidth
-                  variant="contained"
-                  startIcon={<AddIcon />}
-                  onClick={() => setIsAddingColumn(true)}
+                  size="small"
+                  placeholder="Enter column name..."
+                  value={newColumnName}
+                  onChange={(e) => setNewColumnName(e.target.value)}
                   sx={{
-                    justifyContent: "flex-start",
-                    /* Slightly transparent white button to blend with the background */
-                    backgroundColor: "rgba(255, 255, 255, 0.2)",
-                    color: "white",
-                    textTransform: "none",
-                    fontWeight: 600,
-                    borderRadius: 2, // Match your Column's border radius
-                    py: 1.5, // Increase padding to match the header's height
-                    boxShadow: "0 1px 3px rgba(0,0,0,0.12)",
-                    "&:hover": { backgroundColor: "rgba(255, 255, 255, 0.3)" },
+                    backgroundColor: "white",
+                    borderRadius: 1,
+                    mb: 1,
+                    "& .MuiOutlinedInput-root": {
+                      fontSize: "0.9rem",
+                      fontWeight: 600,
+                    },
                   }}
-                >
-                  Add another column
-                </Button>
-              ) : (
-                <Paper
+                />
+                <TextField
+                  fullWidth
+                  multiline
+                  rows={2}
+                  size="small"
+                  placeholder="Enter description (optional)..."
+                  value={newColumnDescription}
+                  onChange={(e) => setNewColumnDescription(e.target.value)}
                   sx={{
-                    p: 1.5,
-                    backgroundColor: "#f1f2f4",
-                    borderRadius: 2,
-                    boxShadow: "0 4px 8px rgba(0,0,0,0.2)",
+                    backgroundColor: "white",
+                    borderRadius: 1,
+                    mb: 1.5,
+                    "& .MuiOutlinedInput-root": { fontSize: "0.85rem" },
                   }}
-                >
-                  {/* Name Input */}
-                  <TextField
-                    autoFocus
-                    fullWidth
+                />
+                <Box sx={{ display: "flex", gap: 1 }}>
+                  <Button
+                    variant="contained"
                     size="small"
-                    placeholder="Enter column name..."
-                    value={newColumnName}
-                    onChange={(e) => setNewColumnName(e.target.value)}
-                    sx={{
-                      backgroundColor: "white",
-                      borderRadius: 1,
-                      mb: 1,
-                      "& .MuiOutlinedInput-root": {
-                        fontSize: "0.9rem",
-                        fontWeight: 600,
-                      },
-                    }}
-                  />
-                  {/* Description Input (Added back) */}
-                  <TextField
-                    fullWidth
-                    multiline
-                    rows={2}
-                    size="small"
-                    placeholder="Enter description (optional)..."
-                    value={newColumnDescription}
-                    onChange={(e) => setNewColumnDescription(e.target.value)}
-                    sx={{
-                      backgroundColor: "white",
-                      borderRadius: 1,
-                      mb: 1.5,
-                      "& .MuiOutlinedInput-root": { fontSize: "0.85rem" },
-                    }}
-                  />
-                  <Box sx={{ display: "flex", gap: 1 }}>
-                    <Button
-                      variant="contained"
-                      size="small"
-                      onClick={handleAddColumn}
-                    >
-                      Add column
-                    </Button>
-                    <IconButton size="small" onClick={handleCancel}>
-                      <CloseIcon />
-                    </IconButton>
-                  </Box>
-                </Paper>
-              )}
-            </Box>
+                    onClick={handleAddColumn}
+                  >
+                    Add column
+                  </Button>
+                  <IconButton size="small" onClick={handleCancel}>
+                    <CloseIcon />
+                  </IconButton>
+                </Box>
+              </Paper>
+            )}
           </Box>
-        </Container>
+        </Box>
       </Box>
+
       <DragOverlay adjustScale={true}>
-        {activeIssue ? (
-          /* Render the exact same component but as a static preview */
-          <IssueCard issue={activeIssue} isOverlay />
-        ) : null}
+        {activeIssue ? <IssueCard issue={activeIssue} isOverlay /> : null}
       </DragOverlay>
     </DndContext>
   );
