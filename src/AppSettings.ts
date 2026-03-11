@@ -9,3 +9,10 @@ export const authSettings = {
   //   cacheLocation: 'localstorage',
   //   useRefreshTokens: true,
 } as const;
+
+export const apiSettings = {
+  baseURL: "https://localhost:7283/api",
+  headers: {
+    "Content-Type": "application/json",
+  },
+} as const;

@@ -87,6 +87,7 @@ const ProjectsPage = ({ onSelectBoard }: ProjectsPageProps) => {
         }
       }
     };
+
     initBoard();
     return () => {
       isMounted = false;
