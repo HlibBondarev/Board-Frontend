@@ -1,16 +1,22 @@
 {
-  // Use IntelliSense to learn about possible attributes.
-  // Hover to view descriptions of existing attributes.
-  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
   "version": "0.2.0",
   "configurations": [
     {
       "type": "chrome",
       "request": "launch",
-      "name": "Launch Chrome against localhost",
-      "url": "http://localhost:5173",
+      "name": "Debug Frontend (HTTPS)",
+      "url": "https://127.0.0.1:5173",
       "webRoot": "${workspaceFolder}",
-      "skipFiles": ["<node_internals>/**", "**/node_modules/**"]
+      "skipFiles": ["<node_internals>/**", "**/node_modules/**"],
+      "runtimeArgs": [
+        "--ignore-certificate-errors",
+        "--allow-insecure-localhost"
+      ],
+      "sourceMapPathOverrides": {
+        "vite://clouddev/*": "${workspaceFolder}/*",
+        "/node_modules/.vite/deps/*": "${workspaceFolder}/node_modules/.vite/deps/*",
+        "/src/*": "${workspaceFolder}/src/*"
+      }
     }
   ]
 }
