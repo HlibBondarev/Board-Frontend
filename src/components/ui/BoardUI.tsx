@@ -29,6 +29,7 @@ import {
 } from "@dnd-kit/core";
 import GlobalErrorSnackbar from "../GlobalErrorSnackbar"; // Adjust path if needed
 import { type IssueDto, type ColumnDto } from "../../store/board/boardSlice"; // Import real types
+import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 
 interface BoardUIProps {
   columns: ColumnDto[]; // Replaced 'any' with ColumnDto
@@ -51,6 +52,8 @@ interface BoardUIProps {
   setIsAddingColumn: (val: boolean) => void;
   setNewColumnName: (val: string) => void;
   setNewColumnDescription: (val: string) => void;
+  isDemo?: boolean; // New prop to identify demo mode
+  onMigrate?: () => void; // New callback for migration
 }
 
 const BoardUI = (props: BoardUIProps) => {
@@ -105,6 +108,25 @@ const BoardUI = (props: BoardUIProps) => {
             <Typography variant="h4" fontWeight="700" color="white">
               Dashboard
             </Typography>
+            {/* NEW: Migration Button (Visible only in Demo and if columns exist) */}
+            {props.isDemo && props.columns.length > 0 && (
+              <Button
+                variant="contained"
+                color="success"
+                startIcon={<CloudUploadIcon />}
+                onClick={props.onMigrate}
+                sx={{
+                  ml: 3,
+                  backgroundColor: "#2e7d32",
+                  fontWeight: "bold",
+                  textTransform: "none",
+                  borderRadius: 2,
+                  "&:hover": { backgroundColor: "#1b5e20" },
+                }}
+              >
+                Save to Cloud
+              </Button>
+            )}
           </Box>
           <Fade in={Boolean(props.filterAssigneeName)}>
             <Chip

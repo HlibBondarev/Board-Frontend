@@ -322,6 +322,25 @@ export const deleteColumn = createAsyncThunk(
   },
 );
 
+export const migrateBoard = createAsyncThunk(
+  "board/migrate",
+  async (
+    payload: { title: string; description: string; columns: ColumnDto[] },
+    { rejectWithValue },
+  ) => {
+    try {
+      //The endpoint should handle recursive saving: Board -> Columns -> Issues
+      const response = await axiosInstance.post("/boards/migrate", payload);
+      return response.data; // Expected: { boardId: number }
+    } catch (error) {
+      const err = error as AxiosError<{ detail?: string }>;
+      return rejectWithValue(
+        err.response?.data?.detail || "Error: Migration failed",
+      );
+    }
+  },
+);
+
 export const boardSlice = createSlice({
   name: "board",
   initialState: initialState,

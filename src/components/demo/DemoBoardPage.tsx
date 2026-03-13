@@ -12,6 +12,10 @@ import BoardUI from "../ui/BoardUI";
 import DemoColumn from "./DemoColumn";
 import DemoIssueCard from "./DemoIssueCard";
 import { type ColumnDto, type IssueDto } from "../../store/board/boardSlice";
+import { useAuth0 } from "@auth0/auth0-react";
+import { migrateBoard } from "../../store/board/boardSlice";
+import { type AppDispatch } from "../../store/store";
+import { useDispatch } from "react-redux";
 
 const STORAGE_KEY = "kanban_demo_data_v1";
 
@@ -43,6 +47,9 @@ const DemoBoardPage = ({ onBack }: { onBack: () => void }) => {
       },
     ];
   });
+
+  const { isAuthenticated, loginWithRedirect } = useAuth0();
+  const dispatch = useDispatch<AppDispatch>();
 
   const loading = false; // Demo data is loaded synchronously, so no loading state neede
   const [activeIssue, setActiveIssue] = useState<IssueDto | null>(null);
@@ -148,8 +155,40 @@ const DemoBoardPage = ({ onBack }: { onBack: () => void }) => {
     });
   };
 
+  const handleMigrate = () => {
+    if (!isAuthenticated) {
+      /* 
+         If not logged in, we can save a flag to 'localStorage' 
+         to trigger migration automatically after redirect back 
+      */
+      if (
+        window.confirm(
+          "You need to login to save data to cloud. Redirect to login?",
+        )
+      ) {
+        localStorage.setItem("pending_migration", "true");
+        loginWithRedirect();
+      }
+      return;
+    }
+
+    // If authenticated, trigger the migration logic.
+    // We send the entire 'columns' array from our local state.
+    console.log("Migrating data to server...", columns);
+    dispatch(
+      migrateBoard({
+        title: "Board imported from Demo",
+        description: "Automatically migrated from local storage",
+        columns,
+      }),
+    );
+    alert("Data migration started! (API call will be here)");
+  };
+
   return (
     <BoardUI
+      isDemo={true}
+      onMigrate={handleMigrate}
       columns={columns}
       loading={loading}
       activeIssue={activeIssue}
