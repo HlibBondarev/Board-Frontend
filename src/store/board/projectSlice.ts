@@ -211,6 +211,19 @@ export const projectSlice = createSlice({
         state.boards.push(action.payload);
         state.loading = false;
       })
+      /* --- Board Updating --- */
+      .addCase(
+        updateBoard.fulfilled,
+        (state, action: PayloadAction<BoardDto>) => {
+          const index = state.boards.findIndex(
+            (b) => b.id === action.payload.id,
+          );
+          if (index !== -1) {
+            state.boards[index] = action.payload; // Update board in local state
+          }
+          state.loading = false;
+        },
+      )
       /* --- Add User to Board --- */
       .addCase(addUserToBoard.fulfilled, (state) => {
         state.loading = false;
