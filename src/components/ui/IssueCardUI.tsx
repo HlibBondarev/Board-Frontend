@@ -81,7 +81,7 @@ const IssueCardUI = (props: IssueCardUIProps) => {
           </Typography>
           <Box sx={{ display: "flex", flexShrink: 0 }}>
             <IconButton size="small" onClick={props.onEdit}>
-              <EditIcon fontSize="small" />
+              <EditIcon fontSize="small" sx={{ color: "green" }} />
             </IconButton>
             <IconButton size="small" color="error" onClick={props.onDelete}>
               <DeleteIcon fontSize="small" />
