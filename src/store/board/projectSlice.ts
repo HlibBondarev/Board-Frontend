@@ -27,6 +27,12 @@ export interface CreateBoardDto {
   description: string;
 }
 
+export interface UpdateBoardDto {
+  boardId: number;
+  title: string;
+  description: string;
+}
+
 // Interface for adding a user to a specific board
 export interface AddUserToBoardDto {
   boardId: number;
@@ -78,6 +84,29 @@ export const createBoard = createAsyncThunk(
       const err = error as AxiosError<{ detail?: string }>;
       return rejectWithValue(
         err.response?.data?.detail || "Error: Board Creation failed",
+      );
+    }
+  },
+);
+
+// Thunk to update the specific board
+export const updateBoard = createAsyncThunk(
+  "project/updateBoard",
+  async (payload: UpdateBoardDto, { rejectWithValue }) => {
+    try {
+      // PUT request to .NET API (e.g., /api/boards/{boardId})
+      const response = await axiosInstance.put<BoardDto>(
+        `/boards/${payload.boardId}`,
+        {
+          title: payload.title,
+          description: payload.description,
+        },
+      );
+      return response.data;
+    } catch (error) {
+      const err = error as AxiosError<{ detail?: string }>;
+      return rejectWithValue(
+        err.response?.data?.detail || "Error: Failed to update board",
       );
     }
   },

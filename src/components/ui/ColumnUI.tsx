@@ -38,6 +38,8 @@ interface ColumnUIProps {
 
 const ColumnUI = (props: ColumnUIProps) => (
   <Paper
+    /* Attach setNodeRef to the root Paper to make the entire column a drop zone */
+    ref={(node: HTMLDivElement | null) => props.setNodeRef(node)}
     sx={{
       width: 300,
       backgroundColor: "#f4f5f7",
@@ -63,6 +65,7 @@ const ColumnUI = (props: ColumnUIProps) => (
       <IconButton size="small" onClick={props.onMenuOpen}>
         <MoreIcon fontSize="small" />
       </IconButton>
+      {/* ... Menu component stays here unchanged ... */}
       <Menu
         anchorEl={props.anchorEl}
         open={Boolean(props.anchorEl)}
@@ -89,21 +92,20 @@ const ColumnUI = (props: ColumnUIProps) => (
         </MenuItem>
       </Menu>
     </Box>
-    <Box
-      ref={(node: HTMLDivElement | null) => props.setNodeRef(node)}
-      sx={{ flexGrow: 1, overflowY: "auto", minHeight: 100, mb: 2 }}
-    >
+
+    {/* Scrollable list of issues */}
+    <Box sx={{ flexGrow: 1, overflowY: "auto", minHeight: 100, mb: 2 }}>
       <SortableContext
         id={String(props.column.id)}
         items={props.issueIds}
         strategy={verticalListSortingStrategy}
       >
-        {/* 2. Fix for "Unexpected any" in map */}
         {props.column.issues?.map((issue: IssueDto) =>
           props.renderIssue(issue),
         )}
       </SortableContext>
     </Box>
+
     <Button
       fullWidth
       startIcon={<AddIcon />}
@@ -118,4 +120,5 @@ const ColumnUI = (props: ColumnUIProps) => (
     </Button>
   </Paper>
 );
+
 export default ColumnUI;

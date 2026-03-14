@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useAuth0 } from "@auth0/auth0-react";
 import {
@@ -7,6 +7,8 @@ import {
   PointerSensor,
   type DragStartEvent,
   type DragEndEvent,
+  type DragOverEvent,
+  pointerWithin,
 } from "@dnd-kit/core";
 import {
   fetchBoard,
@@ -42,8 +44,14 @@ const BoardPage = ({
   const [newColName, setNewColName] = useState("");
   const [newColDesc, setNewColDesc] = useState("");
 
+  /* Initialize sensors for drag and drop */
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 8 },
+      // Only enable sensors if NO filter is active
+      // This effectively disables drag and drop during filtering
+      enabled: !filterAssigneeId,
+    }),
   );
 
   useEffect(() => {
@@ -52,7 +60,7 @@ const BoardPage = ({
       try {
         const token = await getAccessTokenSilently();
         if (isMounted) {
-          setAuthToken(token); // Using the token to clear ESLint 'unused' error
+          setAuthToken(token);
           dispatch(fetchBoard({ boardId }));
         }
       } catch (e) {
@@ -67,6 +75,7 @@ const BoardPage = ({
   }, [dispatch, boardId, getAccessTokenSilently]);
 
   const handleDragStart = (event: DragStartEvent) => {
+    // Guard clause: prevent any drag logic if filter is active
     if (filterAssigneeId) return;
     const issue = columns
       .flatMap((c) => c.issues)
@@ -74,29 +83,92 @@ const BoardPage = ({
     if (issue) setActiveIssue(issue);
   };
 
-  const handleDragEnd = (event: DragEndEvent) => {
+  /* Logic for moving items between columns in real-time */
+  const handleDragOver = (event: DragOverEvent) => {
+    /* Disable cross-column movement logic during filtering */
+    if (filterAssigneeId) return;
     const { active, over } = event;
-    setActiveIssue(null);
     if (!over || filterAssigneeId) return;
 
-    const issueId = Number(active.id);
-    const destinationColumnId = Number(over.id);
+    // Ensure we work with numbers for ID comparison
+    const activeId = Number(active.id);
+    const overId = over.id; // Could be a string from ColumnUI or number from Issue
 
-    /* Find source column for optimistic update */
-    const sourceColumn = columns.find((col) =>
-      col.issues.some((issue) => issue.id === issueId),
+    if (activeId === Number(overId)) return;
+
+    // 1. Find source column using numeric ID
+    const activeColumn = columns.find((col) =>
+      col.issues.some((issue) => Number(issue.id) === activeId),
     );
 
-    if (sourceColumn) {
+    // 2. Find target column using numeric ID (casting overId to Number)
+    let overColumn = columns.find((col) => Number(col.id) === Number(overId));
+
+    if (!overColumn) {
+      overColumn = columns.find((col) =>
+        col.issues.some((issue) => Number(issue.id) === Number(overId)),
+      );
+    }
+
+    if (!activeColumn || !overColumn) return;
+
+    /* 
+     CRITICAL: Cross-column move logic.
+     Check IDs as numbers to ensure the condition 'activeColumn.id !== overColumn.id' 
+     is correctly evaluated even if IDs came as different types.
+  */
+    if (Number(activeColumn.id) !== Number(overColumn.id)) {
       dispatch(
         moveIssueOptimistic({
-          issueId,
-          sourceColumnId: Number(sourceColumn.id), // Added missing required property
-          destinationColumnId,
-          overId: over.id,
+          issueId: activeId,
+          sourceColumnId: Number(activeColumn.id),
+          destinationColumnId: Number(overColumn.id),
+          overId: overId, // Keep original overId for the reducer's findIndex
         }),
       );
-      dispatch(moveIssue({ issueId, columnId: destinationColumnId }));
+    }
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    /* Disable final drop logic during filtering */
+    if (filterAssigneeId) return;
+    const { active, over } = event;
+    setActiveIssue(null);
+
+    if (!over || filterAssigneeId) return;
+
+    const activeId = Number(active.id);
+    const overId = over.id;
+
+    // Find columns with numeric safety
+    const sourceColumn = columns.find((col) =>
+      col.issues.some((issue) => Number(issue.id) === activeId),
+    );
+
+    const destColumn = columns.find(
+      (col) =>
+        Number(col.id) === Number(overId) ||
+        col.issues.some((issue) => Number(issue.id) === Number(overId)),
+    );
+
+    if (sourceColumn && destColumn) {
+      // Final optimistic update to sync internal positions
+      dispatch(
+        moveIssueOptimistic({
+          issueId: activeId,
+          sourceColumnId: Number(sourceColumn.id),
+          destinationColumnId: Number(destColumn.id),
+          overId: overId,
+        }),
+      );
+
+      // Final API call
+      dispatch(
+        moveIssue({
+          issueId: activeId,
+          columnId: Number(destColumn.id),
+        }),
+      );
     }
   };
 
@@ -118,12 +190,26 @@ const BoardPage = ({
     }
   }, [dispatch, boardId, newColName, newColDesc]);
 
+  // 1. Create a filtered version of columns based on assignee filter
+  const filteredColumns = useMemo(() => {
+    if (!filterAssigneeId) return columns;
+
+    return columns.map((col) => ({
+      ...col,
+      // Keep only issues that belong to the selected assignee
+      issues: col.issues.filter(
+        (issue) => issue.assigneeId === filterAssigneeId,
+      ),
+    }));
+  }, [columns, filterAssigneeId]);
+
   return (
     <BoardUI
-      columns={columns}
+      columns={filteredColumns} // Use filtered data here
       loading={loading}
       activeIssue={activeIssue}
       sensors={sensors}
+      collisionDetection={pointerWithin}
       filterAssigneeName={filterAssigneeName}
       isAddingColumn={isAddingColumn}
       newColumnName={newColName}
@@ -145,7 +231,7 @@ const BoardPage = ({
       onClearFilter={() => dispatch(clearFilter())}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
-      onDragOver={() => {}} // DragOver logic can be added here if cross-column hover is needed
+      onDragOver={handleDragOver}
       onAddColumn={handleAddColumnAction}
       onCancelAddColumn={() => {
         setIsAddingColumn(false);

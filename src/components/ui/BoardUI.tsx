@@ -1,3 +1,4 @@
+import React from "react";
 import {
   Box,
   Typography,
@@ -14,28 +15,31 @@ import {
   Add as AddIcon,
   Close as CloseIcon,
   FilterList as FilterIcon,
+  CloudUpload as CloudUploadIcon,
 } from "@mui/icons-material";
-/* Correct imports for dnd-kit */
 import {
   DndContext,
   DragOverlay,
-  closestCorners,
+  pointerWithin,
   type SensorDescriptor,
   type SensorOptions,
-  /* Add these types */
   type DragStartEvent,
   type DragEndEvent,
   type DragOverEvent,
+  type CollisionDetection,
 } from "@dnd-kit/core";
-import GlobalErrorSnackbar from "../GlobalErrorSnackbar"; // Adjust path if needed
-import { type IssueDto, type ColumnDto } from "../../store/board/boardSlice"; // Import real types
-import CloudUploadIcon from "@mui/icons-material/CloudUpload";
+import GlobalErrorSnackbar from "../GlobalErrorSnackbar";
+import { type IssueDto, type ColumnDto } from "../../store/board/boardSlice";
 
+/**
+ * Interface defining the expected props for the Board UI.
+ */
 interface BoardUIProps {
-  columns: ColumnDto[]; // Replaced 'any' with ColumnDto
+  columns: ColumnDto[];
   loading: boolean;
   activeIssue: IssueDto | null;
-  sensors: SensorDescriptor<SensorOptions>[]; // Corrected Sensors type
+  sensors: SensorDescriptor<SensorOptions>[];
+  collisionDetection?: CollisionDetection; // Crucial for catching empty columns
   filterAssigneeName: string | null;
   isAddingColumn: boolean;
   newColumnName: string;
@@ -44,19 +48,20 @@ interface BoardUIProps {
   renderIssueOverlay: (issue: IssueDto) => React.ReactNode;
   onBack: () => void;
   onClearFilter: () => void;
-  onDragStart: (event: DragStartEvent) => void; // Fixed: DragStartEvent
-  onDragEnd: (event: DragEndEvent) => void; // Fixed: DragEndEvent
-  onDragOver: (event: DragOverEvent) => void; // Fixed: DragOverEvent
+  onDragStart: (event: DragStartEvent) => void;
+  onDragEnd: (event: DragEndEvent) => void;
+  onDragOver: (event: DragOverEvent) => void; // Handles real-time column jumping
   onAddColumn: () => void;
   onCancelAddColumn: () => void;
   setIsAddingColumn: (val: boolean) => void;
   setNewColumnName: (val: string) => void;
   setNewColumnDescription: (val: string) => void;
-  isDemo?: boolean; // New prop to identify demo mode
-  onMigrate?: () => void; // New callback for migration
+  isDemo?: boolean;
+  onMigrate?: () => void;
 }
 
-const BoardUI = (props: BoardUIProps) => {
+const BoardUI: React.FC<BoardUIProps> = (props) => {
+  // Show full-screen loader if initial data is being fetched
   if (props.loading && props.columns.length === 0) {
     return (
       <Box
@@ -75,14 +80,18 @@ const BoardUI = (props: BoardUIProps) => {
   return (
     <DndContext
       sensors={props.sensors}
-      collisionDetection={closestCorners}
+      /**
+       * Priority: rectIntersection (passed from BoardPage) for better empty column detection.
+       * Fallback: closestCorners for standard sorting logic.
+       */
+      collisionDetection={props.collisionDetection || pointerWithin}
       onDragStart={props.onDragStart}
       onDragEnd={props.onDragEnd}
       onDragOver={props.onDragOver}
     >
       <Box
         sx={{
-          backgroundColor: "#0079bf",
+          backgroundColor: "#0079bf", // Original blue Trello-like design
           minHeight: "100vh",
           display: "flex",
           flexDirection: "column",
@@ -98,6 +107,7 @@ const BoardUI = (props: BoardUIProps) => {
           },
         }}
       >
+        {/* Top Header: Back Button, Title, and Migration Button */}
         <Box
           sx={{ p: 3, pl: 4, display: "flex", flexDirection: "column", gap: 2 }}
         >
@@ -108,7 +118,7 @@ const BoardUI = (props: BoardUIProps) => {
             <Typography variant="h4" fontWeight="700" color="white">
               Dashboard
             </Typography>
-            {/* NEW: Migration Button (Visible only in Demo and if columns exist) */}
+
             {props.isDemo && props.columns.length > 0 && (
               <Button
                 variant="contained"
@@ -128,6 +138,8 @@ const BoardUI = (props: BoardUIProps) => {
               </Button>
             )}
           </Box>
+
+          {/* Active Filter Indicator */}
           <Fade in={Boolean(props.filterAssigneeName)}>
             <Chip
               icon={<FilterIcon />}
@@ -142,6 +154,7 @@ const BoardUI = (props: BoardUIProps) => {
 
         <GlobalErrorSnackbar />
 
+        {/* Main Board Area: Render columns horizontally */}
         <Box
           sx={{
             display: "flex",
@@ -153,7 +166,10 @@ const BoardUI = (props: BoardUIProps) => {
             width: "max-content",
           }}
         >
+          {/* Render existing columns via the provided render prop */}
           {props.columns.map((col) => props.renderColumn(col))}
+
+          {/* Add Column Section */}
           <Box sx={{ width: 300, flexShrink: 0 }}>
             {!props.isAddingColumn ? (
               <Button
@@ -166,6 +182,7 @@ const BoardUI = (props: BoardUIProps) => {
                   backgroundColor: "rgba(255, 255, 255, 0.2)",
                   color: "white",
                   textTransform: "none",
+                  "&:hover": { backgroundColor: "rgba(255, 255, 255, 0.3)" },
                 }}
               >
                 Add another column
@@ -200,6 +217,7 @@ const BoardUI = (props: BoardUIProps) => {
                     variant="contained"
                     size="small"
                     onClick={props.onAddColumn}
+                    disabled={!props.newColumnName.trim()}
                   >
                     Add
                   </Button>
@@ -212,6 +230,8 @@ const BoardUI = (props: BoardUIProps) => {
           </Box>
         </Box>
       </Box>
+
+      {/* Ghost representation during drag */}
       <DragOverlay adjustScale>
         {props.activeIssue ? props.renderIssueOverlay(props.activeIssue) : null}
       </DragOverlay>
